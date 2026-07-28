@@ -61,6 +61,12 @@ const nights = days.length;
     </div>
 
     <div class="days-col">
+      <p class="sheet-lodging">
+        <span aria-hidden="true">🏨</span>
+        {lodging.link ? <a href={lodging.link}>{lodging.name}</a> : lodging.name}
+        <span class="nights">{nights} {nights === 1 ? 'night' : 'nights'}</span>
+      </p>
+
       {days.map((day) => <DayCard day={day} stopContent={stopContent} />)}
 
       {
@@ -197,9 +203,15 @@ const nights = days.length;
     white-space: nowrap;
   }
 
-  .days-col > :global(.day-card:first-child) {
+  /* first-of-type, not first-child: the mobile-only lodging note sits
+     before the day cards in the DOM */
+  .days-col > :global(.day-card:first-of-type) {
     border-top: none;
     padding-top: 0;
+  }
+
+  .sheet-lodging {
+    display: none; /* desktop keeps lodging in the panel; shown on mobile */
   }
 
   .pool {
@@ -296,14 +308,16 @@ const nights = days.length;
       height: 100vh;
       height: 100svh;
       overflow: hidden; /* clips the oversized kanji + panned image */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
-    /* A giant polaroid taped to the paper: white frame with a thick bottom
-       border, tape at the top, and a slight alternating tilt — the desktop
-       vibe scaled up to fill the screen. */
+    /* A big square polaroid taped to the paper, centered in the viewport:
+       white frame with a thick bottom border, tape at the top, and a slight
+       alternating tilt — the desktop vibe scaled up. */
     .polaroid {
-      position: absolute;
-      inset: 1.5rem 0.95rem 1.05rem;
+      margin: 0 0.95rem;
       padding: 0.55rem 0.55rem 2.5rem;
       rotate: -1deg;
       box-shadow: 0 10px 26px rgb(35 33 28 / 0.2);
@@ -334,8 +348,7 @@ const nights = days.length;
 
     .panel-media {
       position: relative;
-      height: 100%;
-      aspect-ratio: auto;
+      aspect-ratio: 1;
       max-height: none;
     }
 
@@ -359,14 +372,12 @@ const nights = days.length;
         linear-gradient(to bottom, rgb(18 16 12 / 0.25), transparent 20%);
     }
 
-    /* Overlay text block, anchored just above the polaroid's bottom border
-       (photo bottom edge sits at 1.05rem inset + 2.5rem frame = 3.55rem) */
+    /* Overlay text block: follows the polaroid in flow, pulled up over the
+       photo's bottom (the frame's caption strip is 2.5rem of that pull) */
     .panel-text {
-      position: absolute;
+      position: relative;
       z-index: 2;
-      left: 2.1rem;
-      right: 2.1rem;
-      bottom: 4.4rem;
+      margin: -8.4rem 1.7rem 0;
       padding: 0;
       min-width: 0;
     }
@@ -379,7 +390,7 @@ const nights = days.length;
       position: absolute;
       z-index: 0;
       right: -0.5rem;
-      bottom: 2.9rem;
+      bottom: 0.2rem;
       font-family: var(--font-brush);
       font-weight: 400;
       font-size: clamp(7rem, 34vw, 10.5rem);
@@ -417,28 +428,20 @@ const nights = days.length;
       display: none; /* the day-number range stays desktop-only */
     }
 
+    /* Lodging moves out of the hero into the top of the days sheet */
     .panel-lodging {
-      margin-top: 0.45rem;
-      font-size: 0.85rem;
-      color: rgb(255 255 255 / 0.88);
-      text-shadow: 0 1px 8px rgb(0 0 0 / 0.5);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      display: none;
     }
 
-    .panel-lodging a {
-      text-decoration-color: rgb(255 255 255 / 0.55);
-    }
-
-    .panel-lodging a:hover {
-      color: #fff;
-    }
-
-    .nights {
-      border-color: rgb(255 255 255 / 0.4);
-      background: rgb(255 255 255 / 0.16);
-      color: #fff;
+    .sheet-lodging {
+      display: block;
+      margin: 0 0 1.4rem;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.9rem;
+      color: var(--ink-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--paper-raised);
     }
 
     /* Opaque paper sheet that rides up over the pinned hero */
