@@ -1,0 +1,239 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  image: ImageMetadata;
+  imageAlt: string;
+  imageCaption: string;
+  dateRange: string;
+  cities: string[];
+}
+
+const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
+---
+
+<section class="hero">
+  <div class="hero-content">
+    <p class="hero-kicker">{dateRange}</p>
+    <h1>Japan <span class="swash">2026</span></h1>
+    <nav class="hero-route" aria-label="Trip route">
+      {
+        cities.map((city, i) => (
+          <>
+            {i > 0 && <span class="arrow" aria-hidden="true">→</span>}
+            <a href={`#${city.toLowerCase().replace(/\s+/g, '-')}`}>{city}</a>
+          </>
+        ))
+      }
+    </nav>
+    <figure class="polaroid">
+      <div class="polaroid-media">
+        <Image
+          src={image}
+          alt={imageAlt}
+          widths={[800, 1400, 2000]}
+          sizes="(max-width: 768px) 92vw, 780px"
+          format="webp"
+          loading="eager"
+          fetchpriority="high"
+          class="hero-img"
+        />
+      </div>
+      <figcaption class="hand">{imageCaption}</figcaption>
+    </figure>
+  </div>
+  <p class="hero-cue hand" aria-hidden="true">scroll ↓</p>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 3rem 1rem 4.5rem;
+    view-timeline: --hero block;
+  }
+
+  .hero-content {
+    text-align: center;
+    max-width: 52rem;
+  }
+
+  .hero-kicker {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+  }
+
+  h1 {
+    margin: 0.3rem 0 1rem;
+    font-size: clamp(3.2rem, 9vw, 5.8rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+
+  .swash {
+    display: inline-block;
+    padding: 0 0.18em;
+    background: var(--highlight);
+    border-radius: 0.45em 0.35em 0.5em 0.4em / 0.65em 0.5em 0.4em 0.55em;
+    rotate: -1.2deg;
+  }
+
+  .hero-route {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+    margin-bottom: 2.2rem;
+  }
+
+  .hero-route a {
+    text-decoration: none;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    padding: 0.28rem 0.95rem;
+    background: var(--paper-raised);
+  }
+
+  .hero-route a:hover {
+    background: var(--highlight);
+    color: var(--ink);
+  }
+
+  .arrow {
+    color: var(--ink-muted);
+  }
+
+  /* Taped-down photo */
+  .polaroid {
+    position: relative;
+    margin: 0 auto;
+    width: min(780px, 92vw);
+    background: #fff;
+    padding: 0.8rem 0.8rem 0.6rem;
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 28px rgb(35 33 28 / 0.12);
+    rotate: -1.3deg;
+  }
+
+  .polaroid::before,
+  .polaroid::after {
+    content: '';
+    position: absolute;
+    top: -14px;
+    width: 96px;
+    height: 30px;
+    background: rgb(233 214 160 / 0.65);
+    box-shadow: 0 1px 3px rgb(35 33 28 / 0.12);
+  }
+
+  .polaroid::before {
+    left: 8%;
+    rotate: -6deg;
+  }
+
+  .polaroid::after {
+    right: 8%;
+    rotate: 5deg;
+  }
+
+  .polaroid-media {
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+  }
+
+  .polaroid :global(.hero-img) {
+    width: 100%;
+    height: 118%;
+    object-fit: cover;
+  }
+
+  figcaption {
+    margin-top: 0.45rem;
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+  }
+
+  .hand {
+    font-family: var(--font-hand);
+  }
+
+  .hero-cue {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    translate: -50% 0;
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ink-muted);
+  }
+
+  @supports (animation-timeline: view()) {
+    .polaroid {
+      animation: straighten linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 100%;
+    }
+
+    .polaroid :global(.hero-img) {
+      animation: hero-pan linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 100%;
+    }
+
+    .hero-content {
+      animation: hero-lift linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 90%;
+    }
+
+    .hero-cue {
+      animation: hero-fade linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 20%;
+    }
+  }
+
+  @keyframes straighten {
+    to {
+      rotate: 1.6deg;
+      translate: 0 -2.5rem;
+    }
+  }
+
+  @keyframes hero-pan {
+    to {
+      translate: 0 -14%;
+    }
+  }
+
+  @keyframes hero-lift {
+    to {
+      translate: 0 -3rem;
+      opacity: 0.15;
+    }
+  }
+
+  @keyframes hero-fade {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .polaroid,
+    .polaroid :global(.hero-img),
+    .hero-content,
+    .hero-cue {
+      animation: none;
+    }
+  }
+</style>

@@ -1,124 +1,93 @@
 ---
 import { getCollection, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import SegmentSection from '../components/SegmentSection.astro';
+import StopCard from '../components/StopCard.astro';
+import Footer from '../components/Footer.astro';
+import { buildItinerary, formatRange } from '../lib/itinerary';
+import heroImage from '../assets/segments/hero.jpg';
 
+const segments = await getCollection('segments');
 const stops = await getCollection('stops');
+const itinerary = buildItinerary(segments, stops);
 
-// Group stops by city, keeping a stable city order
-const cities = [...new Set(stops.map((s) => s.data.city))].sort();
-const rendered = await Promise.all(
-  stops.map(async (stop) => ({ stop, Content: (await render(stop)).Content }))
+// Pre-render every markdown body once; components receive the Content
+// component via these maps.
+const stopContent = new Map(
+  await Promise.all(
+    stops.map(async (s) => [s.id, (await render(s)).Content] as const)
+  )
+);
+const segmentContent = new Map(
+  await Promise.all(
+    segments.map(async (s) => [s.id, (await render(s)).Content] as const)
+  )
 );
 
-const categoryEmoji: Record<string, string> = {
-  food: '🍜',
-  sight: '⛩️',
-  activity: '🎌',
-  stay: '🏨',
-  travel: '🚄',
-};
+const first = itinerary.segments[0].segment.data;
+const last = itinerary.segments[itinerary.segments.length - 1].segment.data;
+
+// One warm, ink-friendly accent per city, cycled if the trip grows
+const accents = ['#c3423f', '#3f7059', '#b06f2e', '#8c5a74'];
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Japan 2026</title>
-  </head>
-  <body>
-    <header>
-      <h1>Japan 2026 🇯🇵</h1>
-      <p class="tagline">Our trip plan — a work in progress.</p>
-    </header>
+<Base title="Japan 2026">
+  <Hero
+    image={heroImage}
+    imageAlt="Chureito Pagoda overlooking Mount Fuji framed by autumn leaves"
+    imageCaption="Chūreitō Pagoda & Fuji-san, autumn"
+    dateRange={formatRange(first.start, last.end)}
+    cities={itinerary.segments.map((si) => si.segment.data.city)}
+  />
 
-    <main>
-      {
-        cities.map((city) => (
-          <section>
-            <h2>{city}</h2>
-            <ul>
-              {rendered
-                .filter(({ stop }) => stop.data.city === city)
-                .map(({ stop, Content }) => (
-                  <li class="stop">
-                    <h3>
-                      <span class="emoji">{categoryEmoji[stop.data.category]}</span>
-                      {stop.data.link ? (
-                        <a href={stop.data.link}>{stop.data.title}</a>
-                      ) : (
-                        stop.data.title
-                      )}
-                    </h3>
-                    <div class="body">
-                      <Content />
-                    </div>
-                    {stop.data.addedBy && (
-                      <p class="meta">added by {stop.data.addedBy}</p>
-                    )}
-                  </li>
-                ))}
-            </ul>
-          </section>
-        ))
-      }
-    </main>
+  <main>
+    {
+      itinerary.segments.map((si, i) => {
+        const Notes = segmentContent.get(si.segment.id)!;
+        return (
+          <SegmentSection si={si} accent={accents[i % accents.length]} stopContent={stopContent}>
+            <Notes />
+          </SegmentSection>
+        );
+      })
+    }
 
-    <footer>
-      <p>Built with Astro · hosted on GitHub Pages</p>
-    </footer>
-  </body>
-</html>
+    {
+      itinerary.unscheduled.length > 0 && (
+        <section class="unscheduled">
+          <h2>Not on the itinerary yet</h2>
+          <p>
+            These stops don't match a trip segment — check their city or date.
+          </p>
+          {itinerary.unscheduled.map((stop) => (
+            <StopCard stop={stop} Content={stopContent.get(stop.id)} />
+          ))}
+        </section>
+      )
+    }
+  </main>
+
+  <Footer />
+</Base>
 
 <style>
-  :root {
-    color-scheme: light dark;
-  }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  .unscheduled {
     max-width: 42rem;
-    margin: 0 auto;
-    padding: 2rem 1rem 4rem;
-    line-height: 1.6;
+    margin: 3rem auto 0;
+    padding: 1.5rem 1rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
   }
-  header {
-    text-align: center;
-    margin-bottom: 2rem;
+
+  .unscheduled h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.2rem;
   }
-  h1 {
-    margin-bottom: 0.25rem;
-  }
-  .tagline {
-    color: #888;
-    margin-top: 0;
-  }
-  h2 {
-    border-bottom: 2px solid #e0446e;
-    padding-bottom: 0.25rem;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-  .stop {
-    margin-bottom: 1.5rem;
-  }
-  .stop h3 {
-    margin-bottom: 0.25rem;
-  }
-  .emoji {
-    margin-right: 0.35rem;
-  }
-  .body :global(p) {
-    margin: 0.25rem 0;
-  }
-  .meta {
-    font-size: 0.8rem;
-    color: #888;
-    margin: 0.25rem 0 0;
-  }
-  footer {
-    margin-top: 3rem;
-    text-align: center;
-    font-size: 0.8rem;
-    color: #888;
+
+  .unscheduled p {
+    margin: 0 0 1rem;
+    color: var(--ink-muted);
+    font-size: 0.9rem;
   }
 </style>
