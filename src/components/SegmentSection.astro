@@ -298,32 +298,43 @@ const nights = days.length;
       overflow: hidden; /* clips the oversized kanji + panned image */
     }
 
-    /* Strip the polaroid chrome; the figure becomes the photo layer */
+    /* A giant polaroid taped to the paper: white frame with a thick bottom
+       border, tape at the top, and a slight alternating tilt — the desktop
+       vibe scaled up to fill the screen. */
     .polaroid {
       position: absolute;
-      inset: 0;
-      padding: 0;
-      border: none;
-      box-shadow: none;
-      rotate: none;
-      background: none;
+      inset: 1.5rem 0.95rem 1.05rem;
+      padding: 0.55rem 0.55rem 2.5rem;
+      rotate: -1deg;
+      box-shadow: 0 10px 26px rgb(35 33 28 / 0.2);
     }
 
     .segment:nth-of-type(even) .polaroid {
-      rotate: none;
+      rotate: 1deg;
     }
 
     .polaroid::before {
-      display: none;
+      width: 112px;
+      height: 30px;
     }
 
+    /* Tagline moves into the polaroid's bottom border, caption-style */
     .polaroid figcaption {
-      display: none;
+      position: absolute;
+      left: 0.55rem;
+      right: 0.55rem;
+      bottom: 0.45rem;
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .panel-media {
-      position: absolute;
-      inset: 0;
+      position: relative;
+      height: 100%;
       aspect-ratio: auto;
       max-height: none;
     }
@@ -348,27 +359,30 @@ const nights = days.length;
         linear-gradient(to bottom, rgb(18 16 12 / 0.25), transparent 20%);
     }
 
-    /* Overlay text block, bottom-anchored inside the hero */
+    /* Overlay text block, anchored just above the polaroid's bottom border
+       (photo bottom edge sits at 1.05rem inset + 2.5rem frame = 3.55rem) */
     .panel-text {
       position: absolute;
       z-index: 2;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 0 1.25rem calc(2.75rem + env(safe-area-inset-bottom));
+      left: 2.1rem;
+      right: 2.1rem;
+      bottom: 4.4rem;
+      padding: 0;
       min-width: 0;
     }
 
-    /* Half-opaque brush kanji behind the city name */
+    /* Half-opaque brush kanji behind the city name. It's white, so where it
+       runs past the photo onto the white frame it simply disappears — an
+       automatic clip to the photo, no overflow handling needed. */
     .city-ja {
       display: block;
       position: absolute;
       z-index: 0;
-      right: -0.1em;
-      bottom: 3.4rem;
+      right: -0.5rem;
+      bottom: 2.9rem;
       font-family: var(--font-brush);
       font-weight: 400;
-      font-size: clamp(7.5rem, 36vw, 11rem);
+      font-size: clamp(7rem, 34vw, 10.5rem);
       line-height: 1;
       white-space: nowrap;
       color: rgb(255 255 255 / 0.42);
@@ -384,7 +398,7 @@ const nights = days.length;
     }
 
     .panel-city {
-      font-size: clamp(2.9rem, 13vw, 4rem);
+      font-size: clamp(2.6rem, 12vw, 3.6rem);
       font-weight: 700;
       line-height: 1.02;
       letter-spacing: -0.01em;
