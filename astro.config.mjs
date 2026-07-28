@@ -1,9 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 
-// GitHub Pages project site: https://blakehenry.github.io/Japan2026/
-// If the GitHub repo gets a different name, update `base` to match it.
+// Served via GitHub Pages at the custom domain japantrip2026.io (see public/CNAME).
 export default defineConfig({
-  site: 'https://blakehenry.github.io',
-  base: '/Japan2026',
+  site: 'https://japantrip2026.io',
 });
