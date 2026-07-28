@@ -42,6 +42,10 @@ const segments = defineCollection({
         heroImage: image(),
         heroAlt: z.string(),
         tagline: z.string().optional(),
+        // Native-script city name, drawn as brush calligraphy behind the
+        // Latin name on the mobile hero. Any glyph used here must also be
+        // in the subset font <link> in src/layouts/Base.astro.
+        cityJa: z.string().optional(),
       })
       .refine((s) => s.end >= s.start, { message: 'end must be >= start' }),
 });

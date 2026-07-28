@@ -1,5 +1,6 @@
 ---
 city: Kyoto
+cityJa: "京都"
 start: 2026-10-19
 end: 2026-10-23
 lodging:

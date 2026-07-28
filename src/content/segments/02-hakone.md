@@ -1,5 +1,6 @@
 ---
 city: Hakone
+cityJa: "箱根"
 start: 2026-10-17
 end: 2026-10-18
 lodging:

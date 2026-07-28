@@ -1,5 +1,6 @@
 ---
 city: Osaka
+cityJa: "大阪"
 start: 2026-10-24
 end: 2026-10-27
 lodging:

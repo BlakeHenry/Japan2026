@@ -12,6 +12,15 @@ const { title, description = 'Our Japan 2026 trip itinerary' } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Reggae One thick-brush display face, subset via text= to exactly the
+         kanji used by segment cityJa fields (東京箱根都大阪, 7 glyphs, ~2 KB).
+         Extend the text= parameter when a new city is added. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Reggae+One&display=swap&text=%E6%9D%B1%E4%BA%AC%E7%AE%B1%E6%A0%B9%E9%83%BD%E5%A4%A7%E9%98%AA"
+    />
     <title>{title}</title>
   </head>
   <body>
@@ -34,6 +43,7 @@ const { title, description = 'Our Japan 2026 trip itinerary' } = Astro.props;
     --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua',
       Georgia, serif;
     --font-hand: 'Bradley Hand', 'Segoe Print', 'Comic Sans MS', cursive;
+    --font-brush: 'Reggae One', serif;
   }
 
   * {

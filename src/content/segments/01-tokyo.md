@@ -1,5 +1,6 @@
 ---
 city: Tokyo
+cityJa: "東京"
 start: 2026-10-13
 end: 2026-10-16
 lodging:

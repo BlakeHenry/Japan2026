@@ -13,7 +13,8 @@ interface Props {
 
 const { si, accent, stopContent } = Astro.props;
 const { segment, days, pool } = si;
-const { city, start, end, lodging, heroImage, heroAlt, tagline } = segment.data;
+const { city, start, end, lodging, heroImage, heroAlt, tagline, cityJa } =
+  segment.data;
 
 const id = city.toLowerCase().replace(/\s+/g, '-');
 const firstDay = days[0].tripDayNumber;
@@ -30,8 +31,8 @@ const nights = days.length;
             <Image
               src={heroImage}
               alt={heroAlt}
-              widths={[480, 800, 1200]}
-              sizes="(max-width: 768px) 76px, 340px"
+              widths={[480, 800, 1200, 1600]}
+              sizes="(max-width: 768px) 100vw, 340px"
               format="webp"
               loading="lazy"
               class="panel-img"
@@ -40,9 +41,15 @@ const nights = days.length;
           {tagline && <figcaption class="hand">{tagline}</figcaption>}
         </figure>
         <div class="panel-text">
+          {
+            cityJa && (
+              <span class="city-ja" lang="ja" aria-hidden="true">{cityJa}</span>
+            )
+          }
           <h2 class="panel-city">{city}</h2>
           <p class="panel-dates">
-            {formatRange(start, end)} · Days {firstDay}–{lastDay}
+            <span class="dates-range">{formatRange(start, end)}</span><span
+              class="dates-days"> · Days {firstDay}–{lastDay}</span>
           </p>
           <p class="panel-lodging">
             <span aria-hidden="true">🏨</span>
@@ -77,12 +84,14 @@ const nights = days.length;
 
 <style>
   .segment {
+    --seg-bg: var(--paper);
     view-timeline: --seg block;
     padding: 4rem 1rem;
   }
 
   .segment:nth-of-type(even) {
-    background: color-mix(in srgb, var(--paper-raised) 65%, var(--paper));
+    --seg-bg: color-mix(in srgb, var(--paper-raised) 65%, var(--paper));
+    background: var(--seg-bg);
   }
 
   .segment-grid {
@@ -160,6 +169,10 @@ const nights = days.length;
     margin: 0;
     font-size: clamp(2rem, 4vw, 2.7rem);
     line-height: 1.1;
+  }
+
+  .city-ja {
+    display: none; /* shown only in the mobile full-screen hero */
   }
 
   .panel-dates {
@@ -261,11 +274,11 @@ const nights = days.length;
 
   @media (max-width: 768px) {
     .segment {
-      padding: 2.5rem 1rem;
+      padding: 0; /* hero is full-bleed; the days sheet re-adds gutters */
     }
 
     /* Single column; the wrapper column dissolves (display: contents) so the
-       sticky bar's containing block is the full-height segment, letting it
+       sticky hero's containing block is the full-height segment, letting it
        stay pinned while every day card scrolls past. */
     .segment-grid {
       display: block;
@@ -275,31 +288,25 @@ const nights = days.length;
       display: contents;
     }
 
-    /* Compact sticky header bar */
+    /* Full-screen pinned hero. svh (not dvh/vh) so iOS URL-bar collapse
+       never reflows segment heights mid-scroll. */
     .panel {
-      top: 0.5rem;
-      margin-bottom: 1.25rem;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      gap: 0.9rem;
-      padding: 0.6rem 0.75rem;
-      margin-inline: -0.5rem;
-      border-radius: var(--radius);
-      background: color-mix(in srgb, var(--paper) 88%, transparent);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid var(--border);
-      box-shadow: 0 4px 14px rgb(35 33 28 / 0.08);
+      top: 0;
+      z-index: 1; /* below the days sheet */
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden; /* clips the oversized kanji + panned image */
     }
 
+    /* Strip the polaroid chrome; the figure becomes the photo layer */
     .polaroid {
+      position: absolute;
+      inset: 0;
       padding: 0;
       border: none;
       box-shadow: none;
       rotate: none;
       background: none;
-      flex: 0 0 76px;
     }
 
     .segment:nth-of-type(even) .polaroid {
@@ -315,37 +322,120 @@ const nights = days.length;
     }
 
     .panel-media {
-      aspect-ratio: 1;
+      position: absolute;
+      inset: 0;
+      aspect-ratio: auto;
       max-height: none;
-      border-radius: 8px;
-      border: 1px solid var(--border);
     }
 
-    .panel :global(.panel-img) {
-      height: 100%;
-      animation: none;
+    /* .panel-img keeps its base 114% height — the same pan headroom the
+       desktop parallax uses now applies to the full-screen hero. */
+
+    /* Legibility scrim: strong at the bottom (name/dates/lodging live
+       there), a whisper at the top. Neutral dark ink rather than the
+       per-city accent — accents can't be guaranteed to contrast on photos. */
+    .panel-media::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(
+          to top,
+          rgb(18 16 12 / 0.74),
+          rgb(18 16 12 / 0.3) 34%,
+          transparent 58%
+        ),
+        linear-gradient(to bottom, rgb(18 16 12 / 0.25), transparent 20%);
     }
 
+    /* Overlay text block, bottom-anchored inside the hero */
     .panel-text {
-      padding-top: 0;
+      position: absolute;
+      z-index: 2;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 1.25rem calc(2.75rem + env(safe-area-inset-bottom));
       min-width: 0;
     }
 
+    /* Half-opaque brush kanji behind the city name */
+    .city-ja {
+      display: block;
+      position: absolute;
+      z-index: 0;
+      right: -0.1em;
+      bottom: 3.4rem;
+      font-family: var(--font-brush);
+      font-weight: 400;
+      font-size: clamp(7.5rem, 36vw, 11rem);
+      line-height: 1;
+      white-space: nowrap;
+      color: rgb(255 255 255 / 0.42);
+      pointer-events: none;
+    }
+
+    /* Latin text sits above the kanji */
+    .panel-city,
+    .panel-dates,
+    .panel-lodging {
+      position: relative;
+      z-index: 1;
+    }
+
     .panel-city {
-      font-size: 1.35rem;
+      font-size: clamp(2.9rem, 13vw, 4rem);
+      font-weight: 700;
+      line-height: 1.02;
+      letter-spacing: -0.01em;
+      color: #fff;
+      text-shadow: 0 2px 18px rgb(0 0 0 / 0.45);
     }
 
     .panel-dates {
-      font-size: 0.85rem;
-      margin-top: 0.1rem;
+      margin-top: 0.35rem;
+      font-size: 1rem;
+      color: rgb(255 255 255 / 0.95);
+      text-shadow: 0 1px 8px rgb(0 0 0 / 0.5);
+    }
+
+    .dates-days {
+      display: none; /* the day-number range stays desktop-only */
     }
 
     .panel-lodging {
-      font-size: 0.8rem;
-      margin-top: 0.2rem;
+      margin-top: 0.45rem;
+      font-size: 0.85rem;
+      color: rgb(255 255 255 / 0.88);
+      text-shadow: 0 1px 8px rgb(0 0 0 / 0.5);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .panel-lodging a {
+      text-decoration-color: rgb(255 255 255 / 0.55);
+    }
+
+    .panel-lodging a:hover {
+      color: #fff;
+    }
+
+    .nights {
+      border-color: rgb(255 255 255 / 0.4);
+      background: rgb(255 255 255 / 0.16);
+      color: #fff;
+    }
+
+    /* Opaque paper sheet that rides up over the pinned hero */
+    .days-col {
+      position: relative;
+      z-index: 2;
+      margin-top: -1.25rem; /* rounded edge peeks over the photo bottom */
+      padding: 1.5rem 1rem 2.5rem;
+      border-radius: 22px 22px 0 0;
+      background: var(--seg-bg);
+      box-shadow: 0 -10px 26px rgb(35 33 28 / 0.28);
     }
   }
 </style>
