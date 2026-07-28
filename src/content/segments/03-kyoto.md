@@ -1,7 +1,7 @@
 ---
 city: Kyoto
-start: 2026-11-12
-end: 2026-11-16
+start: 2026-10-19
+end: 2026-10-23
 lodging:
   name: Machiya rental in Gion (placeholder)
 heroImage: ../../assets/segments/kyoto.jpg

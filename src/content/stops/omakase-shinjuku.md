@@ -2,7 +2,7 @@
 title: Omakase dinner in Shinjuku
 city: Tokyo
 category: food
-date: 2026-11-08
+date: 2026-10-15
 time: "19:00"
 addedBy: Blake
 ---

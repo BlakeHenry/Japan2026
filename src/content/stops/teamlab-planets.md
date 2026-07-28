@@ -2,7 +2,7 @@
 title: teamLab Planets
 city: Tokyo
 category: activity
-date: 2026-11-07
+date: 2026-10-14
 time: "10:00"
 link: https://www.teamlab.art/e/planets/
 addedBy: Blake

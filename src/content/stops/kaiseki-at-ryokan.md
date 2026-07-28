@@ -2,7 +2,7 @@
 title: Kaiseki dinner at the ryokan
 city: Hakone
 category: food
-date: 2026-11-10
+date: 2026-10-17
 time: "18:30"
 ---
 

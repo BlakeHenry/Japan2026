@@ -2,7 +2,7 @@
 title: Tea ceremony near Kiyomizu-dera
 city: Kyoto
 category: activity
-date: 2026-11-14
+date: 2026-10-21
 time: "15:00"
 addedBy: Blake
 ---

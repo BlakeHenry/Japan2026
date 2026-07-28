@@ -51,7 +51,14 @@ const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
     position: relative;
     min-height: 100svh;
     display: grid;
-    place-items: center;
+    /* An explicit 1fr column (not the implicit auto-sized track from
+       place-items: center) so .hero-content is bounded by the viewport
+       instead of growing to its widest line's max-content size —
+       otherwise a nowrap child (the mobile route scroller) grows past
+       the viewport and widens the whole page. Text stays centered via
+       text-align on .hero-content itself. */
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
     padding: 3rem 1rem 4.5rem;
     view-timeline: --hero block;
   }
@@ -101,6 +108,7 @@ const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
     border-radius: 999px;
     padding: 0.28rem 0.95rem;
     background: var(--paper-raised);
+    white-space: nowrap;
   }
 
   .hero-route a:hover {
@@ -234,6 +242,39 @@ const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
     .hero-content,
     .hero-cue {
       animation: none;
+    }
+  }
+
+  /* On narrow screens, a wrapped orphan pill (e.g. a lone last city
+     centered on its own line) reads as a layout bug. Scroll horizontally
+     instead — the route stays one tidy row and still fits any number of
+     cities as the trip grows. */
+  @media (max-width: 640px) {
+    .hero-route {
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+      margin-inline: -1rem;
+      padding-inline: 1rem;
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        black 1rem,
+        black calc(100% - 1rem),
+        transparent
+      );
+    }
+
+    .hero-route::-webkit-scrollbar {
+      display: none;
+    }
+
+    .hero-route a {
+      scroll-snap-align: start;
     }
   }
 </style>

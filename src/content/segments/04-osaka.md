@@ -1,7 +1,7 @@
 ---
 city: Osaka
-start: 2026-11-17
-end: 2026-11-20
+start: 2026-10-24
+end: 2026-10-27
 lodging:
   name: Hotel near Namba (placeholder)
 heroImage: ../../assets/segments/osaka.jpg

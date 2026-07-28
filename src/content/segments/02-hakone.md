@@ -1,7 +1,7 @@
 ---
 city: Hakone
-start: 2026-11-10
-end: 2026-11-11
+start: 2026-10-17
+end: 2026-10-18
 lodging:
   name: Onsen ryokan — Hakone Ginyu (placeholder)
   link: https://www.hakoneginyu.co.jp/
