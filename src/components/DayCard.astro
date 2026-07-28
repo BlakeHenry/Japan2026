@@ -1,0 +1,97 @@
+---
+import type { Day } from '../lib/itinerary';
+import { formatDay } from '../lib/itinerary';
+import StopCard from './StopCard.astro';
+
+interface Props {
+  day: Day;
+  stopContent: Map<string, any>;
+}
+
+const { day, stopContent } = Astro.props;
+---
+
+<article class="day-card">
+  <header>
+    <span class="day-num">Day {day.tripDayNumber}</span>
+    <h3>{formatDay(day.date)}</h3>
+  </header>
+  {
+    day.reservations.length > 0 ? (
+      <div class="reservations">
+        {day.reservations.map((stop) => (
+          <StopCard stop={stop} Content={stopContent.get(stop.id)} />
+        ))}
+      </div>
+    ) : (
+      <p class="free">Nothing booked — free day.</p>
+    )
+  }
+</article>
+
+<style>
+  .day-card {
+    padding: 1.4rem 0;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Generous card heights = long pin duration for the sticky panel */
+  @media (min-width: 769px) {
+    .day-card {
+      min-height: 34vh;
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    .day-card {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: 0 2rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .day-card {
+      animation: none;
+    }
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .day-num {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--highlight);
+    border-radius: 999px;
+    padding: 0.18rem 0.65rem;
+    white-space: nowrap;
+    rotate: -1.5deg;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.35rem;
+  }
+
+  .free {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ink-muted);
+    font-family: var(--font-hand);
+  }
+</style>
