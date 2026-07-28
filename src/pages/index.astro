@@ -1,0 +1,124 @@
+---
+import { getCollection, render } from 'astro:content';
+
+const stops = await getCollection('stops');
+
+// Group stops by city, keeping a stable city order
+const cities = [...new Set(stops.map((s) => s.data.city))].sort();
+const rendered = await Promise.all(
+  stops.map(async (stop) => ({ stop, Content: (await render(stop)).Content }))
+);
+
+const categoryEmoji: Record<string, string> = {
+  food: '🍜',
+  sight: '⛩️',
+  activity: '🎌',
+  stay: '🏨',
+  travel: '🚄',
+};
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Japan 2026</title>
+  </head>
+  <body>
+    <header>
+      <h1>Japan 2026 🇯🇵</h1>
+      <p class="tagline">Our trip plan — a work in progress.</p>
+    </header>
+
+    <main>
+      {
+        cities.map((city) => (
+          <section>
+            <h2>{city}</h2>
+            <ul>
+              {rendered
+                .filter(({ stop }) => stop.data.city === city)
+                .map(({ stop, Content }) => (
+                  <li class="stop">
+                    <h3>
+                      <span class="emoji">{categoryEmoji[stop.data.category]}</span>
+                      {stop.data.link ? (
+                        <a href={stop.data.link}>{stop.data.title}</a>
+                      ) : (
+                        stop.data.title
+                      )}
+                    </h3>
+                    <div class="body">
+                      <Content />
+                    </div>
+                    {stop.data.addedBy && (
+                      <p class="meta">added by {stop.data.addedBy}</p>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ))
+      }
+    </main>
+
+    <footer>
+      <p>Built with Astro · hosted on GitHub Pages</p>
+    </footer>
+  </body>
+</html>
+
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    line-height: 1.6;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  h1 {
+    margin-bottom: 0.25rem;
+  }
+  .tagline {
+    color: #888;
+    margin-top: 0;
+  }
+  h2 {
+    border-bottom: 2px solid #e0446e;
+    padding-bottom: 0.25rem;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+  .stop {
+    margin-bottom: 1.5rem;
+  }
+  .stop h3 {
+    margin-bottom: 0.25rem;
+  }
+  .emoji {
+    margin-right: 0.35rem;
+  }
+  .body :global(p) {
+    margin: 0.25rem 0;
+  }
+  .meta {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0.25rem 0 0;
+  }
+  footer {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #888;
+  }
+</style>
