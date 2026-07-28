@@ -1,7 +1,7 @@
 ---
 city: Tokyo
-start: 2026-11-06
-end: 2026-11-09
+start: 2026-10-13
+end: 2026-10-16
 lodging:
   name: Hotel Gracery Shinjuku (placeholder)
   link: https://shinjuku.gracery.com/

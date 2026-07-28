@@ -2,7 +2,7 @@
 title: Shinkansen to Kyoto
 city: Kyoto
 category: travel
-date: 2026-11-12
+date: 2026-10-19
 time: "10:15"
 ---
 
