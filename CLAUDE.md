@@ -115,6 +115,13 @@ domain-restricted one in CI — never put localhost on the production key.
 The build works fine without either variable; the map falls back to the
 paper pin scatter.
 
+In CI the values live on the **github-pages environment** (not repo scope),
+as secret `PUBLIC_GOOGLE_MAPS_API_KEY` and variable `PUBLIC_GOOGLE_MAPS_ID`.
+The build job in `.github/workflows/deploy.yml` must therefore declare
+`environment: github-pages` — environment secrets are invisible to jobs that
+don't, and they fail by resolving to an empty string rather than erroring,
+which looks exactly like "no map configured".
+
 ## Structure
 
 - `src/pages/index.astro` — the only page: hero + one `SegmentAreas` per segment

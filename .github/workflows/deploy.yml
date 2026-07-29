@@ -13,6 +13,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The Maps credentials are stored on the github-pages *environment*, and
+    # environment secrets are only visible to jobs that declare it — without
+    # this line they silently resolve to empty strings and the map compiles
+    # out of the build with no error anywhere.
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
       - uses: withastro/action@v3
@@ -22,8 +27,8 @@ jobs:
           # browser — so the daily quota cap, not secrecy, is what prevents
           # abuse. Use the production key here (referrer-restricted to
           # japantrip2026.io, never localhost).
-          PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          PUBLIC_GOOGLE_MAPS_ID: ${{ vars.GOOGLE_MAPS_ID }}
+          PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.PUBLIC_GOOGLE_MAPS_API_KEY }}
+          PUBLIC_GOOGLE_MAPS_ID: ${{ vars.PUBLIC_GOOGLE_MAPS_ID }}
 
   deploy:
     needs: build
