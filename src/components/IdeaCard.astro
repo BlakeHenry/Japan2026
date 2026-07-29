@@ -1,0 +1,124 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { Image } from 'astro:assets';
+import { filterGroup } from '../lib/categories';
+import { stopDomId, stopSlug } from '../lib/itinerary';
+
+interface Props {
+  stop: CollectionEntry<'stops'>;
+  Content: any;
+}
+
+const { stop, Content } = Astro.props;
+const { title, category, link, image, imageAlt } = stop.data;
+
+// One row = optional mini-polaroid photo, a big serif title, one handwritten
+// line. Anything else the frontmatter knows stays off the screen.
+---
+
+<article
+  class="idea"
+  id={stopDomId(stop.id)}
+  data-id={stopSlug(stop.id)}
+  data-group={filterGroup(category)}
+  tabindex="0"
+>
+  {
+    image && (
+      <span class="thumb">
+        <Image
+          src={image}
+          alt={imageAlt ?? ''}
+          width={160}
+          height={160}
+          format="webp"
+          loading="lazy"
+          class="thumb-img"
+        />
+      </span>
+    )
+  }
+  <div class="idea-main">
+    <h4 class="idea-title">
+      {link ? <a href={link}>{title}</a> : title}
+    </h4>
+    <div class="idea-body hand">
+      <Content />
+    </div>
+  </div>
+</article>
+
+<style>
+  /* A journal entry, not a UI card: no box, no border, no shadow. */
+  .idea {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 0.8rem 0.35rem;
+    border-radius: 8px;
+  }
+
+  .idea + .idea {
+    border-top: 1px solid var(--border);
+  }
+
+  .idea[hidden] {
+    display: none;
+  }
+
+  /* Hover and pin↔row sync: a soft wash of marker yellow, nothing else */
+  .idea:hover,
+  .idea:focus-visible,
+  .idea[data-active='true'] {
+    outline: none;
+    background: color-mix(in srgb, var(--highlight) 14%, transparent);
+  }
+
+  /* Mini polaroid: thin white frame, slight alternating tilt */
+  .thumb {
+    flex: none;
+    padding: 3px 3px 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 6px rgb(35 33 28 / 0.14);
+    rotate: -2deg;
+  }
+
+  .idea:nth-child(even) .thumb {
+    rotate: 2deg;
+  }
+
+  .thumb :global(.thumb-img) {
+    width: 3.4rem;
+    height: 3.4rem;
+    object-fit: cover;
+  }
+
+  .idea-main {
+    min-width: 0;
+  }
+
+  .idea-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+
+  /* Margin notes in handwriting, like the polaroid captions */
+  .idea-body {
+    font-size: 0.95rem;
+    color: var(--ink-muted);
+  }
+
+  .idea-body :global(p) {
+    margin: 0.1rem 0 0;
+  }
+
+  .hand {
+    font-family: var(--font-hand);
+  }
+</style>

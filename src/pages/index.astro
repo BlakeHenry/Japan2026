@@ -1,35 +1,13 @@
 ---
-import { getCollection, render } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Hero from '../components/Hero.astro';
-import SegmentSection from '../components/SegmentSection.astro';
-import StopCard from '../components/StopCard.astro';
+import SegmentAreas from '../components/segment/SegmentAreas.astro';
 import Footer from '../components/Footer.astro';
-import { buildItinerary, formatRange } from '../lib/itinerary';
+import { loadTrip } from '../lib/loadTrip';
 import heroImage from '../assets/segments/hero.jpg';
 
-const segments = await getCollection('segments');
-const stops = await getCollection('stops');
-const itinerary = buildItinerary(segments, stops);
-
-// Pre-render every markdown body once; components receive the Content
-// component via these maps.
-const stopContent = new Map(
-  await Promise.all(
-    stops.map(async (s) => [s.id, (await render(s)).Content] as const)
-  )
-);
-const segmentContent = new Map(
-  await Promise.all(
-    segments.map(async (s) => [s.id, (await render(s)).Content] as const)
-  )
-);
-
-const first = itinerary.segments[0].segment.data;
-const last = itinerary.segments[itinerary.segments.length - 1].segment.data;
-
-// One warm, ink-friendly accent per city, cycled if the trip grows
-const accents = ['#c3423f', '#3f7059', '#b06f2e', '#8c5a74'];
+const { itinerary, stopContent, segmentContent, dateRange, cities, accentFor } =
+  await loadTrip();
 ---
 
 <Base title="Japan 2026">
@@ -37,8 +15,8 @@ const accents = ['#c3423f', '#3f7059', '#b06f2e', '#8c5a74'];
     image={heroImage}
     imageAlt="Chureito Pagoda overlooking Mount Fuji framed by autumn leaves"
     imageCaption="Chūreitō Pagoda & Fuji-san, autumn"
-    dateRange={formatRange(first.start, last.end)}
-    cities={itinerary.segments.map((si) => si.segment.data.city)}
+    dateRange={dateRange}
+    cities={cities}
   />
 
   <main>
@@ -46,48 +24,18 @@ const accents = ['#c3423f', '#3f7059', '#b06f2e', '#8c5a74'];
       itinerary.segments.map((si, i) => {
         const Notes = segmentContent.get(si.segment.id)!;
         return (
-          <SegmentSection si={si} accent={accents[i % accents.length]} stopContent={stopContent}>
+          <SegmentAreas
+            si={si}
+            accent={accentFor(i)}
+            index={i}
+            stopContent={stopContent}
+          >
             <Notes />
-          </SegmentSection>
+          </SegmentAreas>
         );
       })
-    }
-
-    {
-      itinerary.unscheduled.length > 0 && (
-        <section class="unscheduled">
-          <h2>Not on the itinerary yet</h2>
-          <p>
-            These stops don't match a trip segment — check their city or date.
-          </p>
-          {itinerary.unscheduled.map((stop) => (
-            <StopCard stop={stop} Content={stopContent.get(stop.id)} />
-          ))}
-        </section>
-      )
     }
   </main>
 
   <Footer />
 </Base>
-
-<style>
-  .unscheduled {
-    max-width: 42rem;
-    margin: 3rem auto 0;
-    padding: 1.5rem 1rem;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius);
-  }
-
-  .unscheduled h2 {
-    margin: 0 0 0.25rem;
-    font-size: 1.2rem;
-  }
-
-  .unscheduled p {
-    margin: 0 0 1rem;
-    color: var(--ink-muted);
-    font-size: 0.9rem;
-  }
-</style>

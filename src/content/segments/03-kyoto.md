@@ -10,7 +10,7 @@ heroAlt: Lantern-lit corridor of vermilion torii gates at Fushimi Inari
 tagline: Temples at dawn, autumn leaves at their peak
 ---
 
-Longest stay of the trip — mid-November should be peak momiji season.
+Longest stay of the trip — late October should bring the first momiji color.
 Alternate one big temple morning with one neighborhood afternoon.
 
 <!-- Photo: "Torii path with lantern at Fushimi Inari Taisha Shrine" — CC BY-SA 4.0

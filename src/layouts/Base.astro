@@ -22,9 +22,13 @@ const { title, description = 'Our Japan 2026 trip itinerary' } = Astro.props;
       href="https://fonts.googleapis.com/css2?family=Reggae+One&display=swap&text=%E6%9D%B1%E4%BA%AC%E7%AE%B1%E6%A0%B9%E9%83%BD%E5%A4%A7%E9%98%AA"
     />
     <title>{title}</title>
+    <slot name="head" />
   </head>
   <body>
     <slot />
+    {/* Body-level so position: fixed overlays are never trapped by an
+        ancestor's transform/filter containing block. */}
+    <slot name="overlay" />
   </body>
 </html>
 
