@@ -8,7 +8,7 @@ import { CATEGORY_KEYS } from './lib/categories';
 // somewhere — don't add fields the UI doesn't show.
 const stops = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/stops' }),
-  schema: ({ image }) =>
+  schema: () =>
     z.object({
       title: z.string(),
       city: z.string(),
@@ -24,14 +24,11 @@ const stops = defineCollection({
         .string()
         .regex(/^\d{2}:\d{2}$/)
         .optional(),
+      // Official site or booking page. The row links here when the stop has
+      // no coordinates — see the row-link priority in CLAUDE.md.
       link: z.string().url().optional(),
-      // Small photo shown as a mini polaroid on the row. Drop the file in
-      // src/assets/stops/ and reference it relative to the markdown file,
-      // e.g. ../../assets/stops/blue-bottle.jpg
-      image: image().optional(),
-      imageAlt: z.string().optional(),
-      // Plots the stop in the map panel (basemap integration is tabled,
-      // pins already render)
+      // Coordinates are what light up the maps: a pin on the city chart, the
+      // preview card in the panel, and a row that opens Google Maps.
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
     }),

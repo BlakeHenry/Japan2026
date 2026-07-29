@@ -1,11 +1,12 @@
 ---
 import type { SegmentItinerary } from '../../lib/itinerary';
-import { formatShort, mapPoints } from '../../lib/itinerary';
-import { FILTER_GROUPS, filterGroup } from '../../lib/categories';
+import { citySlug, mapPoints } from '../../lib/itinerary';
+import { filterGroupsFor } from '../../lib/categories';
 import SegmentShell from './SegmentShell.astro';
-import IdeaCard from '../IdeaCard.astro';
-import Filters from '../Filters';
-import MapPanel from '../map/MapPanel.astro';
+import ScheduledList from './ScheduledList.astro';
+import StopList from '../StopList.astro';
+import FilterBar from '../FilterBar.astro';
+import MapPreview from '../map/MapPreview.astro';
 
 interface Props {
   si: SegmentItinerary;
@@ -15,181 +16,96 @@ interface Props {
 }
 
 const { si, accent, index, stopContent } = Astro.props;
-const { segment, days, ideas, booked, counts } = si;
+const { segment, days, ideas, counts } = si;
 const { city } = segment.data;
 
-const segmentId = city.toLowerCase().replace(/\s+/g, '-');
+const segmentId = citySlug(city);
+// Trailing slash: build.format is `directory`, so this skips a Pages 301.
+const mapHref = `/map/${segmentId}/`;
 
-// Only offer a filter if this city actually has something under it
-const present = new Set(ideas.map((s) => filterGroup(s.data.category)));
-const groups = FILTER_GROUPS.filter((g) => present.has(g.key)).map((g) => ({
-  key: g.key,
-  label: g.label,
-}));
+// Groups come from the ideas this list actually renders, not from every stop
+// in the city — a button that hides everything on screen is a broken button.
+const groups = filterGroupsFor(ideas.map((s) => s.data.category));
+
+// A parchment card with nothing on it, linking to a page with nothing on it,
+// is worse than no card. Both this and the mobile link reappear on their own
+// the moment the first coordinate lands.
+const hasPins = si.all.some((s) => s.data.lat != null && s.data.lng != null);
 ---
 
-<SegmentShell si={si} accent={accent} index={index} pinMin="170vh" compactMedia>
-  <MapPanel
-    slot="panel-extra"
-    points={mapPoints(si)}
-    segmentId={segmentId}
-    city={city}
-  />
-
+{/* pinMin is a floor, not a target: the grid row is already at least as tall
+    as the panel, so this only buys the sticky pin a little travel. Sized to
+    roughly one panel height — bigger values leave a chasm of blank paper
+    under a city that only has a few ideas in it so far. */}
+<SegmentShell si={si} accent={accent} index={index} pinMin="65vh">
   {
-    booked.length > 0 && (
-      <details class="scheduled">
-        <summary>
-          Scheduled <span class="sched-n">{booked.length}</span>
-        </summary>
-        {/* Every day of the stay, so the empty ones read as free time
-            rather than being invisible. A day can hold several bookings. */}
-        <ul class="sched-list">
-          {days.map((day) => (
-            <li class="sched-day" data-empty={day.reservations.length === 0}>
-              <span class="sched-when">{formatShort(day.date)}</span>
-              <span class="sched-items">
-                {day.reservations.map((stop) => (
-                  <span class="sched-item">
-                    {stop.data.time && <b class="sched-time">{stop.data.time}</b>}
-                    <span class="sched-title">
-                      {stop.data.link ? (
-                        <a href={stop.data.link}>{stop.data.title}</a>
-                      ) : (
-                        stop.data.title
-                      )}
-                    </span>
-                  </span>
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </details>
+    hasPins && (
+      <MapPreview
+        slot="panel-extra"
+        points={mapPoints(si)}
+        city={city}
+        href={mapHref}
+      />
     )
   }
 
+  {/* The preview card can't live in the mobile hero (100svh, overflow hidden),
+      so the paper sheet gets a plain link instead. */}
+  {
+    hasPins && (
+      <a class="map-link-mobile note-strip" href={mapHref}>
+        <span aria-hidden="true">🗺️</span> Open the {city} map
+        <span aria-hidden="true">→</span>
+      </a>
+    )
+  }
+
+  <ScheduledList days={days} count={counts.booked} />
+
   <div class="list-head">
-    <h3><span class="swash">{counts.ideas}</span> ideas</h3>
-    <Filters client:visible segmentId={segmentId} groups={groups} />
+    <h3>
+      {
+        counts.ideas > 0 ? (
+          <Fragment>
+            <span class="swash">{counts.ideas}</span>{' '}
+            {counts.ideas === 1 ? 'idea' : 'ideas'}
+          </Fragment>
+        ) : (
+          'Ideas'
+        )
+      }
+    </h3>
+    <FilterBar segmentId={segmentId} groups={groups} />
   </div>
 
-  <div class="idea-list">
-    {ideas.map((stop) => (
-      <IdeaCard stop={stop} Content={stopContent.get(stop.id)} />
-    ))}
-  </div>
+  <StopList
+    stops={ideas}
+    stopContent={stopContent}
+    layout="grid"
+    animate
+    emptyNote={`Nothing on the ${city} list yet.`}
+  />
 
-  <div class="segment-notes">
+  <div class="segment-notes rise-in">
     <slot />
   </div>
 </SegmentShell>
 
 <style>
-  /* --- Scheduled: the few time-pinned things, folded away up top --- */
-  .scheduled {
-    margin-bottom: 0.9rem;
-    border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
-    border-radius: var(--radius);
-    padding: 0.55rem 0.85rem;
+  /* Desktop keeps the map in the sticky panel's preview card; this is the
+     mobile stand-in, styled like .sheet-lodging above it. */
+  .map-link-mobile {
+    display: none;
+    text-decoration: none;
   }
 
-  .scheduled summary {
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--ink-muted);
+  @media (max-width: 768px) {
+    .map-link-mobile {
+      display: block;
+    }
   }
 
-  .scheduled summary:hover {
-    color: var(--accent);
-  }
-
-  .sched-n {
-    display: inline-grid;
-    place-items: center;
-    min-width: 1.3rem;
-    height: 1.3rem;
-    margin-left: 0.2rem;
-    padding: 0 0.3rem;
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    background: var(--highlight);
-    border-radius: 999px;
-    rotate: -2deg;
-  }
-
-  .sched-list {
-    margin: 0.6rem 0 0.15rem;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .sched-day {
-    display: grid;
-    grid-template-columns: 4.4rem 1fr;
-    gap: 0.7rem;
-    align-items: baseline;
-    /* Floor lives on the row, not on the (possibly empty) items column: an
-       empty flex column takes its baseline from its bottom edge, which would
-       push free days taller than booked ones and break the rhythm. */
-    min-height: 1.45rem;
-  }
-
-  .sched-when {
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    text-align: center;
-    color: var(--ink);
-    background: var(--highlight);
-    border-radius: 999px;
-    padding: 0.1rem 0.5rem;
-    rotate: -1.5deg;
-    box-shadow: 0 1px 3px rgb(35 33 28 / 0.12);
-  }
-
-  /* A free day keeps its place in the run but doesn't shout */
-  .sched-day[data-empty='true'] .sched-when {
-    color: var(--ink-muted);
-    background: transparent;
-    border: 1px dashed var(--border);
-    box-shadow: none;
-    rotate: 0deg;
-  }
-
-  .sched-items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  .sched-item {
-    display: flex;
-    align-items: baseline;
-    gap: 0.45rem;
-  }
-
-  .sched-time {
-    flex: none;
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-  }
-
-  .sched-title {
-    font-family: var(--font-display);
-    font-size: 1.02rem;
-    line-height: 1.25;
-  }
-
-  /* --- List head: count + the four filters, pinned while scrolling --- */
+  /* --- List head: count + the filters, pinned while scrolling --- */
   /* The sticky sits on this Astro wrapper rather than the island's root —
      Astro wraps a client component in <astro-island>, and a sticky element
      inside that wrapper has no runway to travel along. */
@@ -222,21 +138,6 @@ const groups = FILTER_GROUPS.filter((g) => present.has(g.key)).map((g) => ({
     font-size: 1.5rem;
   }
 
-  /* The hero's "2026" highlight blob, scaled down for the idea count */
-  .swash {
-    display: inline-block;
-    padding: 0 0.4em;
-    background: var(--highlight);
-    border-radius: 0.6em 0.9em 0.7em 0.8em;
-    rotate: -1.2deg;
-  }
-
-  /* Rows carry their own hairline separators — no gap, no boxes */
-  .idea-list {
-    display: flex;
-    flex-direction: column;
-  }
-
   .segment-notes {
     margin-top: 1.5rem;
     font-size: 0.95rem;
@@ -247,64 +148,5 @@ const groups = FILTER_GROUPS.filter((g) => present.has(g.key)).map((g) => ({
     margin: 0.4rem 0;
   }
 
-  @supports (animation-timeline: view()) {
-    .idea-list > :global(.idea),
-    .scheduled,
-    .segment-notes {
-      animation: rise linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 30%;
-    }
-  }
-
-  @keyframes rise {
-    from {
-      opacity: 0;
-      translate: 0 1.2rem;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .idea-list > :global(.idea),
-    .scheduled,
-    .segment-notes {
-      animation: none;
-    }
-  }
 </style>
 
-{/* Filters is a React island, so its DOM sits outside Astro's style scoping */}
-<style is:global>
-  .filters {
-    display: flex;
-    gap: 0.3rem;
-    flex-wrap: wrap;
-    /* Reserve the row so hydration is layout-neutral */
-    min-height: 1.85rem;
-  }
-
-  .filter {
-    font: inherit;
-    font-size: 0.8rem;
-    line-height: 1.5;
-    padding: 0.16rem 0.75rem;
-    cursor: pointer;
-    white-space: nowrap;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--paper-raised);
-    color: var(--ink-muted);
-  }
-
-  .filter:hover {
-    color: var(--ink);
-    border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  }
-
-  .filter[aria-pressed='true'] {
-    font-weight: 700;
-    color: var(--ink);
-    background: var(--highlight);
-    border-color: transparent;
-  }
-</style>

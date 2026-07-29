@@ -1,6 +1,7 @@
 import { getCollection, render } from 'astro:content';
-import { buildItinerary, formatRange } from './itinerary';
+import { buildItinerary, dateKey, formatRange } from './itinerary';
 import type { Itinerary } from './itinerary';
+import { TRIP } from './trip';
 
 /**
  * One warm, ink-friendly accent per city, cycled if the trip grows.
@@ -8,30 +9,44 @@ import type { Itinerary } from './itinerary';
  */
 export const ACCENTS = ['#c3423f', '#3f7059', '#b06f2e', '#8c5a74'];
 
-/**
- * The exact glyphs in the subset Reggae One face loaded by Base.astro.
- * A cityJa glyph missing from here does NOT fail loudly — it silently falls
- * back to a generic serif that usually *has* the glyph, so it renders wrong
- * rather than absent. Hence the build-time warning below.
- */
-export const KANJI_SUBSET = '東京箱根都大阪';
-
 export interface TripData {
   itinerary: Itinerary;
   /** Pre-rendered markdown bodies, keyed by collection entry id */
   stopContent: Map<string, any>;
   segmentContent: Map<string, any>;
-  /** "Oct 13 – Oct 27" across the whole trip */
+  /** "Oct 13 – Oct 27" — the booked trip window, not a derived span */
   dateRange: string;
   cities: string[];
+  /**
+   * Every distinct glyph used by a segment's `cityJa`, for the subset brush
+   * font. Derived rather than hardcoded so the font request and the content
+   * can never disagree — the old constant had to be edited by hand and
+   * silently rendered the wrong face when someone forgot.
+   */
+  kanjiSubset: string;
   accentFor: (index: number) => string;
 }
 
 /**
  * Every page loads the trip the same way. Astro layouts can't return data,
  * so this is a plain function rather than a layout.
+ *
+ * A build calls this six times — once in the map route's getStaticPaths, once
+ * per generated city page, and once for the index — each rendering every
+ * markdown body and re-emitting the warnings below. Cached so a real content
+ * warning prints once and reads as one problem.
  */
-export async function loadTrip(): Promise<TripData> {
+let cached: Promise<TripData> | null = null;
+
+export function loadTrip(): Promise<TripData> {
+  // Not in dev: the module outlives a request there, so a cache would keep
+  // serving the previous render after a content edit Vite invalidated.
+  if (import.meta.env.DEV) return build();
+  if (!cached) cached = build();
+  return cached;
+}
+
+async function build(): Promise<TripData> {
   const segments = await getCollection('segments');
   const stops = await getCollection('stops');
   const itinerary = buildItinerary(segments, stops);
@@ -50,27 +65,34 @@ export async function loadTrip(): Promise<TripData> {
     )
   );
 
+  // Segments are legs carved out of the booked window. One that falls outside
+  // it is either a typo or a trip that got rebooked — say so either way.
   for (const { segment } of itinerary.segments) {
-    const ja = segment.data.cityJa;
-    if (!ja) continue;
-    const missing = [...ja].filter((g) => !KANJI_SUBSET.includes(g));
-    if (missing.length > 0) {
+    const { city, start, end } = segment.data;
+    if (start < TRIP.start || end > TRIP.end) {
       console.warn(
-        `[fonts] cityJa "${ja}" uses ${missing.join('')} which is not in the ` +
-          `Reggae One subset — extend the text= param in src/layouts/Base.astro`
+        `[itinerary] segment "${city}" (${dateKey(start)} – ${dateKey(end)}) ` +
+          `falls outside the trip window ${dateKey(TRIP.start)} – ` +
+          `${dateKey(TRIP.end)} — fix the segment, or the dates in src/lib/trip.ts`
       );
     }
   }
 
-  const first = itinerary.segments[0].segment.data;
-  const last = itinerary.segments[itinerary.segments.length - 1].segment.data;
+  const kanjiSubset = [
+    ...new Set(
+      itinerary.segments.flatMap((si) => [...(si.segment.data.cityJa ?? '')])
+    ),
+  ].join('');
 
   return {
     itinerary,
     stopContent,
     segmentContent,
-    dateRange: formatRange(first.start, last.end),
+    // From the booked window, not from the segments: the dates are settled
+    // even when no city has been picked yet.
+    dateRange: formatRange(TRIP.start, TRIP.end),
     cities: itinerary.segments.map((si) => si.segment.data.city),
+    kanjiSubset,
     accentFor: (index) => ACCENTS[index % ACCENTS.length],
   };
 }

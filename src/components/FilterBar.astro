@@ -1,0 +1,61 @@
+---
+import Filters from './Filters';
+
+interface Props {
+  segmentId: string;
+  /** Only groups that actually have something in this city */
+  groups: { key: string; label: string }[];
+}
+
+const { segmentId, groups } = Astro.props;
+---
+
+{/* Wraps the island so its styles live in one place — the same arrangement
+    MapPanel.astro has with MapSlot.tsx. Both the index and /map/<city>/
+    render this, so neither has to carry a copy of the pill CSS.
+
+    Below two groups there's nothing to choose: with one group, "All" and that
+    group select the identical set, and with none it's a lone pressed pill
+    filtering nothing. A control that can't change anything is worse than no
+    control, so neither call site has to think about it. */}
+{
+  groups.length > 1 && (
+    <Filters client:visible segmentId={segmentId} groups={groups} />
+  )
+}
+
+{/* Filters is a React island, so its DOM sits outside Astro's style scoping */}
+<style is:global>
+  .filters {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    /* Reserve the row so hydration is layout-neutral */
+    min-height: 1.85rem;
+  }
+
+  .filter {
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    padding: 0.16rem 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper-raised);
+    color: var(--ink-muted);
+  }
+
+  .filter:hover {
+    color: var(--ink);
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  }
+
+  .filter[aria-pressed='true'] {
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--highlight);
+    border-color: transparent;
+  }
+</style>

@@ -1,6 +1,8 @@
 ---
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
+import { citySlug } from '../lib/itinerary';
+import { TRIP } from '../lib/trip';
 
 interface Props {
   image: ImageMetadata;
@@ -16,17 +18,21 @@ const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
 <section class="hero">
   <div class="hero-content">
     <p class="hero-kicker">{dateRange}</p>
-    <h1>Japan <span class="swash">2026</span></h1>
-    <nav class="hero-route" aria-label="Trip route">
-      {
-        cities.map((city, i) => (
-          <>
-            {i > 0 && <span class="arrow" aria-hidden="true">→</span>}
-            <a href={`#${city.toLowerCase().replace(/\s+/g, '-')}`}>{city}</a>
-          </>
-        ))
-      }
-    </nav>
+    <h1>{TRIP.name} <span class="swash" data-size="lg">{TRIP.year}</span></h1>
+    {/* No cities picked yet → no route to show, and an empty <nav> would
+        still take up its margin. */}
+    {
+      cities.length > 0 && (
+        <nav class="hero-route" aria-label="Trip route">
+          {cities.map((city, i) => (
+            <>
+              {i > 0 && <span class="arrow" aria-hidden="true">→</span>}
+              <a href={`#${citySlug(city)}`}>{city}</a>
+            </>
+          ))}
+        </nav>
+      )
+    }
     <figure class="polaroid">
       <div class="polaroid-media">
         <Image
@@ -85,13 +91,6 @@ const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
     letter-spacing: -0.01em;
   }
 
-  .swash {
-    display: inline-block;
-    padding: 0 0.18em;
-    background: var(--highlight);
-    border-radius: 0.45em 0.35em 0.5em 0.4em / 0.65em 0.5em 0.4em 0.55em;
-    rotate: -1.2deg;
-  }
 
   .hero-route {
     display: flex;
@@ -171,9 +170,6 @@ const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
     color: var(--ink-muted);
   }
 
-  .hand {
-    font-family: var(--font-hand);
-  }
 
   .hero-cue {
     position: absolute;

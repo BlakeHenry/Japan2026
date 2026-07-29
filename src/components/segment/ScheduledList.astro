@@ -1,0 +1,153 @@
+---
+import type { Day } from '../../lib/itinerary';
+import { formatShort } from '../../lib/itinerary';
+
+interface Props {
+  days: Day[];
+  /** Booked count — the summary badge, and whether this renders at all */
+  count: number;
+}
+
+const { days, count } = Astro.props;
+---
+
+{/* The few time-pinned things, folded away above the loose ideas. */}
+{
+  count > 0 && (
+    <details class="scheduled rise-in">
+      <summary>
+        Scheduled <span class="sched-n">{count}</span>
+      </summary>
+      {/* Every day of the stay, so the empty ones read as free time
+          rather than being invisible. A day can hold several bookings. */}
+      <ul class="sched-list">
+        {days.map((day) => (
+          <li class="sched-day" data-empty={day.reservations.length === 0}>
+            <span class="sched-when">{formatShort(day.date)}</span>
+            <span class="sched-items">
+              {day.reservations.map((stop) => (
+                <span class="sched-item">
+                  {stop.data.time && <b class="sched-time">{stop.data.time}</b>}
+                  <span class="sched-title">
+                    {stop.data.link ? (
+                      <a href={stop.data.link}>{stop.data.title}</a>
+                    ) : (
+                      stop.data.title
+                    )}
+                  </span>
+                </span>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+<style>
+  .scheduled {
+    margin-bottom: 0.9rem;
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+    border-radius: var(--radius);
+    padding: 0.55rem 0.85rem;
+  }
+
+  .scheduled summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  .scheduled summary:hover {
+    color: var(--accent);
+  }
+
+  .sched-n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.3rem;
+    height: 1.3rem;
+    margin-left: 0.2rem;
+    padding: 0 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: var(--highlight);
+    border-radius: 999px;
+    rotate: -2deg;
+  }
+
+  .sched-list {
+    margin: 0.6rem 0 0.15rem;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sched-day {
+    display: grid;
+    grid-template-columns: 4.4rem 1fr;
+    gap: 0.7rem;
+    align-items: baseline;
+    /* Floor lives on the row, not on the (possibly empty) items column: an
+       empty flex column takes its baseline from its bottom edge, which would
+       push free days taller than booked ones and break the rhythm. */
+    min-height: 1.45rem;
+  }
+
+  /* Same highlighter blob as IdeaCard's .idea-when, tuned for a grid cell
+     rather than an inline badge on a serif baseline. Kept separate on
+     purpose — merging them needs more override than they'd share. */
+  .sched-when {
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: center;
+    color: var(--ink);
+    background: var(--highlight);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    rotate: -1.5deg;
+    box-shadow: 0 1px 3px rgb(35 33 28 / 0.12);
+  }
+
+  /* A free day keeps its place in the run but doesn't shout */
+  .sched-day[data-empty='true'] .sched-when {
+    color: var(--ink-muted);
+    background: transparent;
+    border: 1px dashed var(--border);
+    box-shadow: none;
+    rotate: 0deg;
+  }
+
+  .sched-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .sched-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+  }
+
+  .sched-time {
+    flex: none;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+
+  .sched-title {
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    line-height: 1.25;
+  }
+</style>

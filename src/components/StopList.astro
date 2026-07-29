@@ -1,0 +1,82 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import IdeaCard from './IdeaCard.astro';
+
+interface Props {
+  stops: CollectionEntry<'stops'>[];
+  /** Pre-rendered markdown bodies from loadTrip(), keyed by collection id */
+  stopContent: Map<string, any>;
+  /** 'grid' is the index's two-column journal; 'column' is the map page */
+  layout?: 'grid' | 'column';
+  /** Scroll-driven entry animation — the index wants it, the map page doesn't */
+  animate?: boolean;
+  /** Shown in place of the list when there's nothing to list */
+  emptyNote?: string;
+}
+
+const {
+  stops,
+  stopContent,
+  layout = 'grid',
+  animate = false,
+  emptyNote,
+} = Astro.props;
+---
+
+{/* The one place that knows a list is empty, so the one place that says so. */}
+{
+  stops.length === 0 ? (
+    emptyNote && <p class="stop-list-empty hand">{emptyNote}</p>
+  ) : (
+    <div
+      class="stop-list"
+      data-layout={layout}
+      data-animate={animate ? 'true' : undefined}
+    >
+      {stops.map((stop) => (
+        <IdeaCard stop={stop} Content={stopContent.get(stop.id)} />
+      ))}
+    </div>
+  )
+}
+
+<style>
+  /* Rows carry their own hairline separators — no gap, no boxes */
+  .stop-list[data-layout='grid'] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.6rem;
+  }
+
+  @media (max-width: 768px) {
+    .stop-list[data-layout='grid'] {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* 'column' needs no rules — block flow is already one row per line. The
+     container still exists so [data-animate] has something to hang off. */
+
+  .stop-list-empty {
+    margin: 1.2rem 0 0.4rem;
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+  }
+
+  /* Same intent as the global .rise-in utility, but it has to be a descendant
+     selector: the rows are IdeaCard's markup, so this component can't put a
+     class on them. Keep the range in sync with Base.astro. */
+  @supports (animation-timeline: view()) {
+    .stop-list[data-animate] > :global(.idea) {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stop-list[data-animate] > :global(.idea) {
+      animation: none;
+    }
+  }
+</style>

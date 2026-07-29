@@ -93,3 +93,23 @@ const GROUP_OF = new Map<string, string>(
 /** Which filter button a stop answers to, or '' if none */
 export const filterGroup = (categoryKey: string): string =>
   GROUP_OF.get(categoryKey) ?? '';
+
+/**
+ * The filter buttons worth showing for a set of stops.
+ *
+ * Pass the categories the list actually RENDERS, not every category in the
+ * city: the index lists ideas only, so deriving its buttons from every stop
+ * would offer a button that hides everything on screen.
+ *
+ * Takes strings rather than entries so this module stays free of
+ * `astro:content` and can be imported from anywhere.
+ */
+export const filterGroupsFor = (
+  categories: readonly string[]
+): { key: string; label: string }[] => {
+  const present = new Set(categories.map(filterGroup));
+  return FILTER_GROUPS.filter((g) => present.has(g.key)).map((g) => ({
+    key: g.key,
+    label: g.label,
+  }));
+};

@@ -1,0 +1,33 @@
+---
+import Base from '../layouts/Base.astro';
+import { TRIP_TITLE } from '../lib/trip';
+---
+
+{/* GitHub Pages serves dist/404.html for any unmatched path on a custom
+    domain. Worth having now that /map/<city>/ makes mistyped URLs likelier. */}
+<Base title={`Not found · ${TRIP_TITLE}`}>
+  <main class="lost">
+    <h1>Off the map</h1>
+    <p class="hand">That page isn't on our itinerary.</p>
+    <p><a href="/">← Back to the trip</a></p>
+  </main>
+</Base>
+
+<style>
+  .lost {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 6rem 1.5rem;
+    text-align: center;
+  }
+
+  .lost h1 {
+    margin: 0;
+    font-size: clamp(2.2rem, 6vw, 3.2rem);
+  }
+
+  /* .hand itself is global (Base.astro) */
+  .hand {
+    color: var(--ink-muted);
+  }
+</style>
