@@ -1,0 +1,109 @@
+---
+import { travelEmoji, type TravelMode } from '../../lib/travel';
+
+interface Leg {
+  mode: TravelMode;
+  text: string;
+}
+
+interface Props {
+  arrive?: Leg[];
+  depart?: Leg[];
+}
+
+const { arrive = [], depart = [] } = Astro.props;
+---
+
+{/* A leg exists only once it's booked, so an empty section means "not booked
+    yet" and says so — there's no third state to draw. The card itself always
+    renders: every city is one we arrive in and leave, and hiding the whole
+    thing would make an unbooked trip look like a settled one. */}
+<div class="card">
+  <span class="tape" data-tilt="right">Getting here &amp; onward</span>
+
+  <p class="leg-head">Arrive</p>
+  {
+    arrive.length > 0 ? (
+      <ul class="legs">
+        {arrive.map((l) => (
+          <li>
+            <span class="mode" aria-hidden="true">
+              {travelEmoji(l.mode)}
+            </span>
+            <span>{l.text}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="empty hand">Nothing booked yet.</p>
+    )
+  }
+
+  <p class="leg-head">Depart</p>
+  {
+    depart.length > 0 ? (
+      <ul class="legs">
+        {depart.map((l) => (
+          <li>
+            <span class="mode" aria-hidden="true">
+              {travelEmoji(l.mode)}
+            </span>
+            <span>{l.text}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="empty hand">Nothing booked yet.</p>
+    )
+  }
+</div>
+
+<style>
+  .card {
+    background: var(--paper-raised);
+    box-shadow: 0 6px 16px rgb(60 50 30 / 0.12);
+    border-radius: 3px;
+    padding: 1.05rem 1.2rem 1.2rem;
+  }
+
+  .leg-head {
+    margin: 0.9rem 0 0.2rem;
+    font-weight: 700;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #b0a68f;
+  }
+
+  .legs {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .legs li {
+    display: flex;
+    gap: 0.55rem;
+    align-items: baseline;
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: #4a443a;
+    border-bottom: 1px dashed #e3dac2;
+  }
+
+  .legs li:last-child {
+    border-bottom: 0;
+  }
+
+  .mode {
+    flex: none;
+    font-size: 0.95rem;
+  }
+
+  .empty {
+    margin: 0.1rem 0 0;
+    font-size: 1.15rem;
+    color: var(--ink-muted);
+  }
+</style>

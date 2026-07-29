@@ -180,3 +180,20 @@ export const formatShort = (d: Date): string =>
 export function formatRange(start: Date, end: Date): string {
   return `${formatShort(start)} – ${formatShort(end)}`;
 }
+
+/**
+ * A stay reads the way a hotel booking does: arrival day through checkout
+ * morning. `end` is the last full day we're in the city, so checkout is the
+ * day after — "Oct 13–17" for a stay whose last full day is the 16th.
+ * formatRange() stays as-is for the map pages, which are listing days we're
+ * in the city rather than describing a booking.
+ */
+export function formatStay(start: Date, end: Date): string {
+  const checkout = new Date(end);
+  checkout.setUTCDate(checkout.getUTCDate() + 1);
+  const sameMonth = start.getUTCMonth() === checkout.getUTCMonth();
+  const tail = sameMonth
+    ? checkout.toLocaleDateString('en-US', { ...utc, day: 'numeric' })
+    : formatShort(checkout);
+  return `${formatShort(start)}–${tail}`;
+}

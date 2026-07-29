@@ -1,6 +1,7 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { CATEGORY_KEYS } from './lib/categories';
+import { TRAVEL_MODE_KEYS } from './lib/travel';
 
 // Every stop on the trip is one markdown file in src/content/stops/.
 // The schema below is validated at build time, so a bad entry fails the
@@ -37,6 +38,15 @@ const stops = defineCollection({
 // One markdown file per contiguous stay (city + lodging + date range) in
 // src/content/segments/. Segments must not overlap; `end` is the last full
 // day in that city, and `city` must exactly match the stops' `city` values.
+// One leg of getting somewhere. `mode` picks the glyph (src/lib/travel.ts);
+// `text` is the whole human-readable line. No status field on purpose — a leg
+// only exists once it's booked, so its absence is what "not booked yet" looks
+// like.
+const leg = z.object({
+  mode: z.enum(TRAVEL_MODE_KEYS),
+  text: z.string(),
+});
+
 const segments = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/segments' }),
   schema: ({ image }) =>
@@ -45,10 +55,21 @@ const segments = defineCollection({
         city: z.string(),
         start: z.coerce.date(),
         end: z.coerce.date(),
-        lodging: z.object({
-          name: z.string(),
-          link: z.string().url().optional(),
-        }),
+        // Optional: a stay with nowhere booked yet still belongs on the
+        // itinerary, and the card says so rather than disappearing.
+        lodging: z
+          .object({
+            name: z.string(),
+            // Neighbourhood or one-line orientation — "Shinjuku, by the
+            // station". Not an address.
+            area: z.string().optional(),
+            link: z.string().url().optional(),
+          })
+          .optional(),
+        // How we get here and how we leave. Both optional and both filled in
+        // as things are booked.
+        arrive: z.array(leg).optional(),
+        depart: z.array(leg).optional(),
         heroImage: image(),
         heroAlt: z.string(),
         tagline: z.string().optional(),

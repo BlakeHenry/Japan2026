@@ -1,7 +1,6 @@
 ---
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
-import { citySlug } from '../lib/itinerary';
 import { TRIP } from '../lib/trip';
 
 interface Props {
@@ -9,269 +8,172 @@ interface Props {
   imageAlt: string;
   imageCaption: string;
   dateRange: string;
-  cities: string[];
 }
 
-const { image, imageAlt, imageCaption, dateRange, cities } = Astro.props;
+const { image, imageAlt, imageCaption, dateRange } = Astro.props;
 ---
 
+{/* The cover page: exactly one viewport, no scrolling, no navigation except
+    the tape button at the bottom. Everything here is sized against svh so the
+    photo and the button can never push each other off screen. */}
 <section class="hero">
-  <div class="hero-content">
-    <p class="hero-kicker">{dateRange}</p>
-    <h1>{TRIP.name} <span class="swash" data-size="lg">{TRIP.year}</span></h1>
-    {/* No cities picked yet → no route to show, and an empty <nav> would
-        still take up its margin. */}
-    {
-      cities.length > 0 && (
-        <nav class="hero-route" aria-label="Trip route">
-          {cities.map((city, i) => (
-            <>
-              {i > 0 && <span class="arrow" aria-hidden="true">→</span>}
-              <a href={`#${citySlug(city)}`}>{city}</a>
-            </>
-          ))}
-        </nav>
-      )
-    }
-    <figure class="polaroid">
-      <div class="polaroid-media">
-        <Image
-          src={image}
-          alt={imageAlt}
-          widths={[800, 1400, 2000]}
-          sizes="(max-width: 768px) 92vw, 780px"
-          format="webp"
-          loading="eager"
-          fetchpriority="high"
-          class="hero-img"
-        />
-      </div>
-      <figcaption class="hand">{imageCaption}</figcaption>
-    </figure>
-  </div>
-  <p class="hero-cue hand" aria-hidden="true">scroll ↓</p>
+  <p class="hero-kicker">{dateRange}</p>
+  <h1>
+    <span>{TRIP.name}</span>
+    <span class="swash" data-size="lg">{TRIP.year}</span>
+  </h1>
+  <figure class="polaroid">
+    <div class="polaroid-media">
+      <Image
+        src={image}
+        alt={imageAlt}
+        widths={[800, 1400, 2000]}
+        sizes="(max-width: 768px) 92vw, 760px"
+        format="webp"
+        loading="eager"
+        fetchpriority="high"
+        class="hero-img"
+      />
+    </div>
+    <figcaption class="hand">{imageCaption}</figcaption>
+  </figure>
+  <a class="hero-cta tape" href="/plan/">Open the plan →</a>
 </section>
 
 <style>
   .hero {
-    position: relative;
     min-height: 100svh;
-    display: grid;
-    /* An explicit 1fr column (not the implicit auto-sized track from
-       place-items: center) so .hero-content is bounded by the viewport
-       instead of growing to its widest line's max-content size —
-       otherwise a nowrap child (the mobile route scroller) grows past
-       the viewport and widens the whole page. Text stays centered via
-       text-align on .hero-content itself. */
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-items: center;
-    padding: 3rem 1rem 4.5rem;
-    view-timeline: --hero block;
-  }
-
-  .hero-content {
-    text-align: center;
-    max-width: 52rem;
+    padding: min(3.25rem, 4svh) 1rem 0;
   }
 
   .hero-kicker {
     margin: 0;
-    font-weight: 600;
-    letter-spacing: 0.18em;
+    font-weight: 700;
+    letter-spacing: 0.3em;
     text-transform: uppercase;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--ink-muted);
   }
 
   h1 {
-    margin: 0.3rem 0 1rem;
-    font-size: clamp(3.2rem, 9vw, 5.8rem);
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-  }
-
-
-  .hero-route {
+    margin: 0.15rem 0 0;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 0.6rem;
-    font-weight: 600;
-    margin-bottom: 2.2rem;
+    align-items: baseline;
+    gap: 1.25rem;
+    font-weight: 500;
+    line-height: 1.18;
+    /* Three-way min: the design's 92px ceiling, a 12svh term so the whole
+       cover fits one screen on short laptops, and a 13vw term the mockup
+       omits — at 92px "Japan 2026" in EB Garamond is far wider than a phone. */
+    font-size: min(5.75rem, 12svh, 13vw);
   }
 
-  .hero-route a {
-    text-decoration: none;
-    border: 1.5px solid var(--ink);
-    border-radius: 999px;
-    padding: 0.28rem 0.95rem;
-    background: var(--paper-raised);
-    white-space: nowrap;
+  /* The year is a solid rounded chip here, not the marker-pen blob .swash is
+     everywhere else. Scoped rules are (0,2,0) and beat Base's (0,1,0), which
+     is the documented way to tune a shared mark locally. em units so the chip
+     tracks the fluid title size. */
+  .swash[data-size='lg'] {
+    padding: 0 0.26em;
+    border-radius: 0.2em;
+    rotate: 0deg;
+    line-height: 1.18;
   }
 
-  .hero-route a:hover {
-    background: var(--highlight);
-    color: var(--ink);
-  }
-
-  .arrow {
-    color: var(--ink-muted);
-  }
-
-  /* Taped-down photo */
+  /* Taped-down photo. The width lives on the frame, not the photo, because
+     the 1rem of white border is part of what has to fit the viewport — and
+     because a shrink-to-fit flex item gives a percentage child nothing to
+     resolve against. 792px = the design's 760px photo plus both borders. */
   .polaroid {
     position: relative;
-    margin: 0 auto;
-    width: min(780px, 92vw);
+    margin: 1.4rem 0 0;
+    width: min(792px, 100%);
     background: #fff;
-    padding: 0.8rem 0.8rem 0.6rem;
-    border: 1px solid var(--border);
-    box-shadow: 0 10px 28px rgb(35 33 28 / 0.12);
-    rotate: -1.3deg;
+    padding: 1rem 1rem 0.625rem;
+    box-shadow: 0 16px 36px rgb(60 50 30 / 0.18);
+    rotate: -0.4deg;
   }
 
   .polaroid::before,
   .polaroid::after {
     content: '';
     position: absolute;
-    top: -14px;
-    width: 96px;
-    height: 30px;
-    background: rgb(233 214 160 / 0.65);
-    box-shadow: 0 1px 3px rgb(35 33 28 / 0.12);
+    top: -11px;
+    width: 92px;
+    height: 26px;
+    background: rgb(233 212 150 / 0.85);
+    box-shadow: 0 1px 3px rgb(60 50 30 / 0.15);
   }
 
   .polaroid::before {
-    left: 8%;
-    rotate: -6deg;
+    left: 64px;
+    rotate: -3deg;
   }
 
   .polaroid::after {
-    right: 8%;
-    rotate: 5deg;
+    right: 64px;
+    rotate: 3deg;
   }
 
+  /* An explicit box rather than an aspect-ratio, so the photo is bounded by
+     the viewport's height as well as its width and the cover always fits.
+     the width comes from the frame's content box, already fitted above. */
   .polaroid-media {
     overflow: hidden;
-    aspect-ratio: 16 / 9;
+    height: min(426px, 46svh);
+  }
+
+  /* Narrow screens crop portrait rather than letterbox — a 2:1 sliver above a
+     bottom-anchored button leaves the middle of the page empty. */
+  @media (max-width: 768px) {
+    .polaroid-media {
+      height: min(520px, 52svh);
+    }
   }
 
   .polaroid :global(.hero-img) {
     width: 100%;
-    height: 118%;
+    height: 100%;
     object-fit: cover;
   }
 
   figcaption {
-    margin-top: 0.45rem;
-    font-size: 1.05rem;
-    color: var(--ink-muted);
+    margin-top: 0.55rem;
+    text-align: center;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    color: #8a8172;
   }
 
-
-  .hero-cue {
-    position: absolute;
-    bottom: 1.2rem;
-    left: 50%;
-    translate: -50% 0;
-    margin: 0;
-    font-size: 1rem;
-    color: var(--ink-muted);
+  /* The look is the global .tape mark; this is the button-sized tune of it,
+     plus a text-decoration reset because Base's global <a> rules would
+     otherwise underline it and turn it red on hover. */
+  .hero-cta {
+    margin: auto 0 min(1.75rem, 3svh);
+    flex: none;
+    padding: 0.5rem 1.375rem;
+    rotate: -1deg;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    letter-spacing: 0.18em;
+    text-decoration: none;
+    transition:
+      rotate 0.18s ease,
+      translate 0.18s ease;
   }
 
-  @supports (animation-timeline: view()) {
-    .polaroid {
-      animation: straighten linear both;
-      animation-timeline: --hero;
-      animation-range: exit 0% exit 100%;
-    }
-
-    .polaroid :global(.hero-img) {
-      animation: hero-pan linear both;
-      animation-timeline: --hero;
-      animation-range: exit 0% exit 100%;
-    }
-
-    .hero-content {
-      animation: hero-lift linear both;
-      animation-timeline: --hero;
-      animation-range: exit 0% exit 90%;
-    }
-
-    .hero-cue {
-      animation: hero-fade linear both;
-      animation-timeline: --hero;
-      animation-range: exit 0% exit 20%;
-    }
-  }
-
-  @keyframes straighten {
-    to {
-      rotate: 1.6deg;
-      translate: 0 -2.5rem;
-    }
-  }
-
-  @keyframes hero-pan {
-    to {
-      translate: 0 -14%;
-    }
-  }
-
-  @keyframes hero-lift {
-    to {
-      translate: 0 -3rem;
-      opacity: 0.15;
-    }
-  }
-
-  @keyframes hero-fade {
-    to {
-      opacity: 0;
-    }
+  .hero-cta:hover,
+  .hero-cta:focus-visible {
+    color: var(--tape-ink);
+    rotate: 0deg;
+    translate: 0 -2px;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .polaroid,
-    .polaroid :global(.hero-img),
-    .hero-content,
-    .hero-cue {
-      animation: none;
-    }
-  }
-
-  /* On narrow screens, a wrapped orphan pill (e.g. a lone last city
-     centered on its own line) reads as a layout bug. Scroll horizontally
-     instead — the route stays one tidy row and still fits any number of
-     cities as the trip grows. */
-  @media (max-width: 640px) {
-    .hero-route {
-      flex-wrap: nowrap;
-      justify-content: flex-start;
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-      -webkit-overflow-scrolling: touch;
-      scroll-snap-type: x proximity;
-      scrollbar-width: none;
-      margin-inline: -1rem;
-      padding-inline: 1rem;
-      mask-image: linear-gradient(
-        to right,
-        transparent,
-        black 1rem,
-        black calc(100% - 1rem),
-        transparent
-      );
-    }
-
-    .hero-route::-webkit-scrollbar {
-      display: none;
-    }
-
-    .hero-route a {
-      scroll-snap-align: start;
+    .hero-cta {
+      transition: none;
     }
   }
 </style>

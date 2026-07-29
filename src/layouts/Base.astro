@@ -15,9 +15,9 @@ const {
 // Derived from the segments' cityJa, so the font request can never disagree
 // with the content. No Japanese city names yet → no font request at all.
 const { kanjiSubset } = await loadTrip();
-const brushFontHref =
+const jaFontHref =
   kanjiSubset.length > 0
-    ? `https://fonts.googleapis.com/css2?family=Reggae+One&display=swap&text=${encodeURIComponent(kanjiSubset)}`
+    ? `https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap&text=${encodeURIComponent(kanjiSubset)}`
     : null;
 ---
 
@@ -26,18 +26,24 @@ const brushFontHref =
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    {/* Reggae One thick-brush display face, subset via text= to exactly the
-        glyphs the segments actually use — a couple of KB rather than a couple
-        of hundred. Skipped entirely when no city has a cityJa. */}
-    {
-      brushFontHref && (
-        <Fragment>
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-          <link rel="stylesheet" href={brushFontHref} />
-        </Fragment>
-      )
-    }
+    {/* Unconditional now — the three text faces below are always requested, so
+        the handshake is always worth warming. */}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    {/* The site's three voices: EB Garamond sets the display serif, Caveat the
+        handwriting, Karla the body. All three are variable on Google Fonts, so
+        the weight lists below resolve to one file per family, not one per
+        weight. Kept out of the Reggae One request because that one carries a
+        text= subset and would drag these along into it. */}
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Caveat:wght@400;600&family=Karla:wght@400;500;600;700;800&display=swap"
+    />
+    {/* Yuji Syuku, the fine-stroke brush face the city names are set in,
+        subset via text= to exactly the glyphs the segments actually use — a
+        couple of KB rather than a couple of hundred. Skipped entirely when no
+        city has a cityJa. */}
+    {jaFontHref && <link rel="stylesheet" href={jaFontHref} />}
     <title>{title}</title>
     <slot name="head" />
   </head>
@@ -52,19 +58,25 @@ const brushFontHref =
 <style is:global>
   :root {
     color-scheme: light;
-    --paper: #faf6ef;
+    --paper: #f7f3ea;
     --paper-raised: #fffdf8;
-    --ink: #23211c;
-    --ink-muted: #756f63;
+    --ink: #1f1c17;
+    --ink-muted: #6f6a5e;
     --border: #e4dccc;
-    --highlight: #f6d87c;
+    --highlight: #f2d36b;
     --accent: #c3423f;
     --radius: 10px;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua',
-      Georgia, serif;
-    --font-hand: 'Bradley Hand', 'Segoe Print', 'Comic Sans MS', cursive;
-    --font-brush: 'Reggae One', serif;
+    /* System stacks stay behind each webfont so display=swap's first paint
+       lands on something with roughly the right shape. */
+    --font: 'Karla', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-display: 'EB Garamond', 'Iowan Old Style', 'Palatino Linotype',
+      'Book Antiqua', Georgia, serif;
+    --font-hand: 'Caveat', 'Bradley Hand', 'Segoe Print', 'Comic Sans MS',
+      cursive;
+    --font-ja: 'Yuji Syuku', serif;
+    /* Washi tape, the colour of the strips holding the photos down */
+    --tape: rgb(233 212 150 / 0.92);
+    --tape-ink: #3d3728;
   }
 
   * {
@@ -81,10 +93,10 @@ const brushFontHref =
     /* Faint dot-grid paper texture */
     background-image: radial-gradient(
       circle,
-      rgb(35 33 28 / 0.055) 1px,
-      transparent 1px
+      rgb(120 108 84 / 0.14) 1px,
+      transparent 1.5px
     );
-    background-size: 22px 22px;
+    background-size: 26px 26px;
     color: var(--ink);
     font-family: var(--font);
     line-height: 1.6;
@@ -120,7 +132,7 @@ const brushFontHref =
      these (0,1,0), so a component can still tune one locally — see the hero's
      .swash variant and the trimmed rules in Footer/404.
 
-     This block is the single source for these four names. Don't redefine them
+     This block is the single source for these names. Don't redefine them
      globally elsewhere; map-paper.css is the only other global sheet and it
      targets .mapslot* exclusively.
      ---------------------------------------------------------------------- */
@@ -143,6 +155,31 @@ const brushFontHref =
   .swash[data-size='lg'] {
     padding: 0 0.18em;
     border-radius: 0.45em 0.35em 0.5em 0.4em / 0.65em 0.5em 0.4em 0.55em;
+  }
+
+  /* A torn strip of washi tape. Section labels wear it, and so does the
+     cover page's one button — which is why it lives here rather than in
+     either component. `clip-path` gives the torn edge; [data-tilt='right']
+     leans the other way so a column of them doesn't look rubber-stamped.
+
+     clip-path clips box-shadow too, so the lift on hover is done with
+     translate rather than a shadow. */
+  .tape {
+    display: inline-block;
+    background: var(--tape);
+    clip-path: polygon(2% 0, 100% 6%, 98% 100%, 0 94%);
+    padding: 0.25rem 0.8rem;
+    rotate: -1.2deg;
+    font-weight: 800;
+    font-size: 0.63rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--tape-ink);
+  }
+
+  .tape[data-tilt='right'] {
+    clip-path: polygon(0 6%, 98% 0, 100% 94%, 2% 100%);
+    rotate: 1.2deg;
   }
 
   /* Neutral count chip — nights, pin counts. Deliberately not the highlighter:

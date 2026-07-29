@@ -1,429 +1,151 @@
 ---
-import { Image } from 'astro:assets';
 import type { SegmentItinerary } from '../../lib/itinerary';
-import { citySlug, formatRange } from '../../lib/itinerary';
+import { citySlug, formatStay } from '../../lib/itinerary';
 
 interface Props {
   si: SegmentItinerary;
   accent: string;
-  /** Position in the trip — drives the alternating background + photo tilt */
+  /** Position in the trip — drives the alternating background */
   index: number;
-  /**
-   * Minimum height for the scrolling column, i.e. how long the sticky panel
-   * stays pinned. See the note on pin duration in the styles below.
-   */
-  pinMin?: string;
 }
 
-const { si, accent, index, pinMin } = Astro.props;
+const { si, accent, index } = Astro.props;
 const { segment, days } = si;
-const { city, start, end, lodging, heroImage, heroAlt, tagline, cityJa } =
-  segment.data;
+const { city, start, end, cityJa } = segment.data;
 
 const id = citySlug(city);
 // `end` is the last full day and we leave the next morning, so the day count
 // and the night count are the same number.
 const nights = days.length;
 const alt = index % 2 === 1;
-
-const style = [`--accent: ${accent}`, pinMin && `--pin-min: ${pinMin}`]
-  .filter(Boolean)
-  .join('; ');
 ---
 
-<section class="segment" id={id} data-alt={alt} style={style}>
-  <div class="segment-grid">
-    <div class="panel-col">
-      <aside class="panel">
-        <figure class="polaroid">
-          <div class="panel-media">
-            <Image
-              src={heroImage}
-              alt={heroAlt}
-              widths={[480, 800, 1200, 1600]}
-              sizes="(max-width: 768px) 100vw, 340px"
-              format="webp"
-              loading="lazy"
-              class="panel-img"
-            />
-          </div>
-          {tagline && <figcaption class="hand">{tagline}</figcaption>}
-        </figure>
-        <div class="panel-text">
-          {
-            cityJa && (
-              <span class="city-ja" lang="ja" aria-hidden="true">{cityJa}</span>
-            )
-          }
-          <h2 class="panel-city">{city}</h2>
-          <p class="panel-dates">{formatRange(start, end)}</p>
-          {/* Lodging is rendered twice on purpose: on desktop it belongs to the
-              sticky panel, on mobile it belongs to the paper sheet, and those
-              are different DOM parents — CSS can't relocate a node across
-              containers. `display: none` drops the inactive copy from the
-              accessibility tree, so only one is ever announced. */}
-          <p class="panel-lodging">
-            <span aria-hidden="true">🏨</span>
-            {lodging.link ? <a href={lodging.link}>{lodging.name}</a> : lodging.name}
-            <span class="nights pill">{nights} {nights === 1 ? 'night' : 'nights'}</span>
-          </p>
-        </div>
-        <slot name="panel-extra" />
-      </aside>
+{/* The city header, then two columns: the stay itself on the left (photo,
+    lodging, how we get here), what we do with it on the right (day by day,
+    ideas). Both slots are plain flow — no sticky, no scroll-driven anything,
+    so a city is one readable block whatever its height. */}
+<section class="segment" id={id} data-alt={alt} style={`--accent: ${accent}`}>
+  <div class="segment-inner">
+    <header class="segment-head">
+      <h2 class="city"><span class="city-name">{city}</span></h2>
+      {
+        cityJa && (
+          <span class="city-ja" lang="ja" aria-hidden="true">
+            {cityJa}
+          </span>
+        )
+      }
+      <p class="stay">
+        {`${formatStay(start, end)} · ${nights} ${nights === 1 ? 'night' : 'nights'}`}
+      </p>
+    </header>
+
+    <div class="segment-grid">
+      <div class="col col-stay">
+        <slot name="stay" />
+      </div>
+      <div class="col col-plan">
+        <slot name="plan" />
+      </div>
     </div>
 
-    <div class="scroll-col">
-      <p class="sheet-lodging note-strip">
-        <span aria-hidden="true">🏨</span>
-        {lodging.link ? <a href={lodging.link}>{lodging.name}</a> : lodging.name}
-        <span class="nights pill">{nights} {nights === 1 ? 'night' : 'nights'}</span>
-      </p>
-      <slot />
-    </div>
+    <slot name="notes" />
   </div>
 </section>
 
 <style>
-  /* ------------------------------------------------------------------
-     This component owns the entire parallax / sticky spine. Every page
-     variant imports it so the effect is defined exactly once and cannot
-     drift between variants.
-
-     DO NOT add `contain`, `content-visibility`, `filter`, `transform`,
-     `backdrop-filter`, or `will-change: transform` to .segment,
-     .segment-grid, .panel-col, or .panel. Each of those creates a new
-     containing block or paint/scroll containment, which silently breaks
-     the sticky pin, the named view-timeline lookup, or any
-     position: fixed descendant.
-     ------------------------------------------------------------------ */
-
   .segment {
     --seg-bg: var(--paper);
-    view-timeline: --seg block;
-    padding: 4rem 1rem;
+    padding: 3.5rem 1.5rem 4rem;
+    /* The route rail takes a fifth of the viewport out from under this, so a
+       viewport media query would keep the two columns long after there's
+       room for them. Sizing against the section's own width is the whole
+       point. Safe here only because this component no longer owns a sticky
+       pin or a view-timeline — containment would have broken both. */
+    container-type: inline-size;
   }
 
+  /* The only thing separating one city from the next on a long page. The
+     mockup shows a single city, so it has no equivalent — this is what keeps
+     four of them from reading as one continuous sheet. */
   .segment[data-alt='true'] {
     --seg-bg: color-mix(in srgb, var(--paper-raised) 65%, var(--paper));
     background: var(--seg-bg);
   }
 
-  .segment-grid {
-    max-width: 72rem;
+  .segment-inner {
+    max-width: 74rem;
     margin-inline: auto;
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 3.5rem;
   }
 
-  /* .panel-col stretches to the full row height (default grid stretch),
-     giving the sticky panel room to travel while the column scrolls. */
-  .panel {
-    position: sticky;
-    top: clamp(1rem, 4vh, 2.5rem);
+  .segment-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 1rem;
+    margin-bottom: 2rem;
   }
 
-  /* How long the panel stays pinned is simply how tall this column is.
-     Filtering can cut the list down to two rows, which would collapse the
-     column and kill the parallax — so the runway is declared here instead
-     of emerging from content. */
-  @media (min-width: 769px) {
-    .scroll-col {
-      min-height: var(--pin-min, auto);
-    }
-  }
-
-  .polaroid {
-    position: relative;
+  .city {
     margin: 0;
-    background: #fff;
-    padding: 0.7rem 0.7rem 0.5rem;
-    border: 1px solid var(--border);
-    box-shadow: 0 8px 22px rgb(35 33 28 / 0.12);
-    rotate: -1.4deg;
+    font-weight: 500;
+    font-size: clamp(2.4rem, 5vw, 3.5rem);
+    line-height: 1.15;
   }
 
-  .segment[data-alt='true'] .polaroid {
-    rotate: 1.4deg;
-  }
-
-  .polaroid::before {
-    content: '';
-    position: absolute;
-    top: -13px;
-    left: 50%;
-    translate: -50% 0;
-    width: 92px;
-    height: 28px;
-    background: rgb(233 214 160 / 0.65);
-    box-shadow: 0 1px 3px rgb(35 33 28 / 0.12);
-    rotate: -3deg;
-  }
-
-  .panel-media {
-    overflow: hidden;
-    /* width: 100% is load-bearing, not decoration. With `width: auto` the
-       browser honours the aspect ratio by SHRINKING the box once max-height
-       clamps it, leaving the photo narrower than the polaroid frame around
-       it — the frame reads as broken. Pinning the width means the ratio is
-       simply dropped on short screens and the photo crops instead. */
-    width: 100%;
-    /* The whole panel — photo, caption, name, dates, lodging, and the map
-       preview card in panel-extra — has to fit inside the viewport or the
-       sticky pin stops feeling pinned. On a 14" laptop (~850px usable) that
-       budget is about 758px, and this cap is the biggest single term in it.
-       Measure before raising it. */
-    aspect-ratio: 4 / 5;
-    max-height: 36vh;
-  }
-
-  .panel :global(.panel-img) {
-    width: 100%;
-    height: 114%;
-    object-fit: cover;
-  }
-
-  figcaption {
-    margin-top: 0.4rem;
-    font-size: 0.95rem;
-    color: var(--ink-muted);
-    text-align: center;
-  }
-
-
-  .panel-text {
-    padding-top: 1rem;
-  }
-
-  /* Short laptops: claw back the last ~60px so the preview card still clears
-     the fold. The tagline goes to one ellipsised line rather than wrapping. */
-  @media (min-width: 769px) and (max-height: 760px) {
-    .panel-media {
-      max-height: 30vh;
-    }
-
-    .polaroid figcaption {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  }
-
-  .panel-city {
-    margin: 0;
-    font-size: clamp(2rem, 4vw, 2.7rem);
-    line-height: 1.1;
+  /* The highlighter chip from the cover page's "2026", at city scale. Not
+     .swash — that's the marker-pen blob, and this is the flat card. */
+  .city-name {
+    display: inline-block;
+    background: var(--highlight);
+    border-radius: 0.16em;
+    padding: 0 0.24em;
   }
 
   .city-ja {
-    display: none; /* shown only in the mobile full-screen hero */
+    font-family: var(--font-ja);
+    font-weight: 400;
+    font-size: clamp(1.3rem, 2.4vw, 1.8rem);
+    color: #a89264;
   }
 
-  .panel-dates {
-    margin: 0.3rem 0 0;
-    font-weight: 600;
-    color: var(--accent);
-  }
-
-  .panel-lodging {
-    margin: 0.6rem 0 0;
-    font-size: 0.95rem;
+  .stay {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
     color: var(--ink-muted);
   }
 
-  /* The chip itself is the global .pill; this is just its placement */
-  .nights {
-    margin-left: 0.5rem;
+  .segment-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    gap: 2.6rem;
+    align-items: start;
   }
 
-  .sheet-lodging {
-    display: none; /* desktop keeps lodging in the panel; shown on mobile */
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+    min-width: 0;
   }
 
-  /* Scroll-driven parallax — evergreen browsers only; older ones get a
-     clean static layout since sticky pinning needs no animation. */
-  @supports (animation-timeline: view()) {
-    .panel :global(.panel-img) {
-      animation: pan linear both;
-      animation-timeline: --seg;
-      animation-range: cover 0% cover 100%;
-    }
+  .col-plan {
+    gap: 2.4rem;
   }
 
-  @keyframes pan {
-    from {
-      translate: 0 0;
-    }
-    to {
-      translate: 0 -12%;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .panel :global(.panel-img) {
-      animation: none;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .segment {
-      padding: 0; /* hero is full-bleed; the sheet re-adds gutters */
-    }
-
-    /* Single column; the wrapper column dissolves (display: contents) so the
-       sticky hero's containing block is the full-height segment, letting it
-       stay pinned while the whole sheet scrolls past. */
+  @container (max-width: 54rem) {
     .segment-grid {
-      display: block;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 2.2rem;
     }
+  }
 
-    .panel-col {
-      display: contents;
-    }
-
-    /* Full-screen pinned hero. svh (not dvh/vh) so iOS URL-bar collapse
-       never reflows segment heights mid-scroll. */
-    .panel {
-      top: 0;
-      z-index: 1; /* below the paper sheet */
-      height: 100vh;
-      height: 100svh;
-      overflow: hidden; /* clips the oversized kanji + panned image */
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    /* A big square polaroid taped to the paper, centered in the viewport:
-       white frame with a thick bottom border, tape at the top, and a slight
-       alternating tilt — the desktop vibe scaled up. */
-    .polaroid {
-      margin: 0 0.95rem;
-      padding: 0.55rem 0.55rem 2.5rem;
-      rotate: -1deg;
-      box-shadow: 0 10px 26px rgb(35 33 28 / 0.2);
-    }
-
-    .segment[data-alt='true'] .polaroid {
-      rotate: 1deg;
-    }
-
-    .polaroid::before {
-      width: 112px;
-      height: 30px;
-    }
-
-    /* Tagline moves into the polaroid's bottom border, caption-style */
-    .polaroid figcaption {
-      position: absolute;
-      left: 0.55rem;
-      right: 0.55rem;
-      bottom: 0.45rem;
-      margin: 0;
-      font-size: 0.85rem;
-      line-height: 1.3;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .panel-media {
-      position: relative;
-      aspect-ratio: 1;
-      max-height: none;
-    }
-
-    /* .panel-img keeps its base 114% height — the same pan headroom the
-       desktop parallax uses now applies to the full-screen hero. */
-
-    /* Legibility scrim: strong at the bottom (name/dates live there), a
-       whisper at the top. Neutral dark ink rather than the per-city accent —
-       accents can't be guaranteed to contrast on photos. */
-    .panel-media::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(
-          to top,
-          rgb(18 16 12 / 0.74),
-          rgb(18 16 12 / 0.3) 34%,
-          transparent 58%
-        ),
-        linear-gradient(to bottom, rgb(18 16 12 / 0.25), transparent 20%);
-    }
-
-    /* Overlay text block: follows the polaroid in flow, pulled up over the
-       photo's bottom (the frame's caption strip is 2.5rem of that pull) */
-    .panel-text {
-      position: relative;
-      z-index: 2;
-      margin: -8.4rem 1.7rem 0;
-      padding: 0;
-      min-width: 0;
-    }
-
-    /* Half-opaque brush kanji behind the city name. It's white, so where it
-       runs past the photo onto the white frame it simply disappears — an
-       automatic clip to the photo, no overflow handling needed. */
-    .city-ja {
-      display: block;
-      position: absolute;
-      z-index: 0;
-      right: -0.5rem;
-      bottom: 0.2rem;
-      font-family: var(--font-brush);
-      font-weight: 400;
-      font-size: clamp(7rem, 34vw, 10.5rem);
-      line-height: 1;
-      white-space: nowrap;
-      color: rgb(255 255 255 / 0.42);
-      pointer-events: none;
-    }
-
-    /* Latin text sits above the kanji */
-    .panel-city,
-    .panel-dates,
-    .panel-lodging {
-      position: relative;
-      z-index: 1;
-    }
-
-    .panel-city {
-      font-size: clamp(2.6rem, 12vw, 3.6rem);
-      font-weight: 700;
-      line-height: 1.02;
-      letter-spacing: -0.01em;
-      color: #fff;
-      text-shadow: 0 2px 18px rgb(0 0 0 / 0.45);
-    }
-
-    .panel-dates {
-      margin-top: 0.35rem;
-      font-size: 1rem;
-      color: rgb(255 255 255 / 0.95);
-      text-shadow: 0 1px 8px rgb(0 0 0 / 0.5);
-    }
-
-    /* Lodging moves out of the hero into the top of the paper sheet */
-    .panel-lodging {
-      display: none;
-    }
-
-    /* Look comes from the global .note-strip; this just turns it on */
-    .sheet-lodging {
-      display: block;
-    }
-
-    /* Opaque paper sheet that rides up over the pinned hero */
-    .scroll-col {
-      position: relative;
-      z-index: 2;
-      margin-top: -1.25rem; /* rounded edge peeks over the photo bottom */
-      padding: 1.5rem 1rem 2.5rem;
-      border-radius: 22px 22px 0 0;
-      background: var(--seg-bg);
-      box-shadow: 0 -10px 26px rgb(35 33 28 / 0.28);
+  @media (max-width: 900px) {
+    .segment {
+      padding: 2.5rem 1rem 3rem;
     }
   }
 </style>
