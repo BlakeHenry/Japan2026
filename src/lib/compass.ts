@@ -1,12 +1,10 @@
 /**
- * The compass rose ornament, shared verbatim by MapPreview.astro (static
- * Astro) and MapSlot.tsx (React island).
+ * The compass rose ornament, drawn by MapSlot.tsx (React island).
  *
- * It's the inner markup as a string rather than a component because an Astro
- * component can't render inside a React island — injected with `set:html` on
- * one side and `dangerouslySetInnerHTML` on the other. Both sides supply the
- * <svg> wrapper, so `.mapslot-compass` in map-paper.css still drives the
- * colour and size.
+ * It's the inner markup as a string rather than an Astro component because an
+ * Astro component can't render inside a React island — it goes in via
+ * `dangerouslySetInnerHTML`. MapSlot supplies the <svg> wrapper, so
+ * `.mapslot-compass` in map-paper.css still drives the colour and size.
  *
  * Deliberately NOT a CSS data-URI background: `currentColor` and
  * `var(--font-display)` don't survive a data URI, and a background layer

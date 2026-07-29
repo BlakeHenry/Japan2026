@@ -1,0 +1,162 @@
+---
+import Base from '../layouts/Base.astro';
+import RouteRail from '../components/RouteRail.astro';
+import SegmentAreas from '../components/segment/SegmentAreas.astro';
+import StopList from '../components/StopList.astro';
+import Footer from '../components/Footer.astro';
+import { loadTrip } from '../lib/loadTrip';
+import { TRIP, TRIP_TITLE } from '../lib/trip';
+
+const { itinerary, stopContent, segmentContent, dateRange, accentFor } =
+  await loadTrip();
+
+// Nights across the whole trip window, not the sum of the segments — the rail
+// describes the trip we're on, which is the same length whether or not every
+// night of it has a city yet.
+const tripNights = Math.round(
+  (TRIP.end.getTime() - TRIP.start.getTime()) / 86_400_000
+);
+---
+
+{/* The itinerary proper. Astro emits this as plan/index.html, so every link
+    to it uses a trailing slash — same reason SegmentAreas writes
+    /map/<city>/: without one GitHub Pages answers with a 301 first. */}
+<Base title={`The plan · ${TRIP_TITLE}`}>
+  <div class="plan-layout">
+    {
+      itinerary.segments.length > 0 ? (
+        <RouteRail
+          segments={itinerary.segments}
+          dateRange={dateRange}
+          nights={tripNights}
+        />
+      ) : (
+        /* No cities means no route to draw, and an empty rail would just be
+           a dashed line down an empty column. The back link still has to
+           live somewhere, so it falls back to a plain one. */
+        <p class="lone-back">
+          <a class="hand" href="/">
+            ← {TRIP_TITLE}
+          </a>
+        </p>
+      )
+    }
+
+    <main>
+      {/* The visible headings here are the city names (h2). Without this the
+          page would have no h1 at all — the site's only visible one lives on
+          the cover. */}
+      <h1 class="sr-only">The plan</h1>
+
+      {
+        itinerary.segments.length === 0 && (
+          <section class="no-cities">
+            <h2>No cities yet</h2>
+            <p class="hand">
+              Two weeks in {TRIP.name}, and the itinerary is still a blank page.
+            </p>
+          </section>
+        )
+      }
+
+      {
+        itinerary.segments.map((si, i) => {
+          const Notes = segmentContent.get(si.segment.id)!;
+          return (
+            <SegmentAreas si={si} accent={accentFor(i)} index={i}>
+              <Notes />
+            </SegmentAreas>
+          );
+        })
+      }
+
+      {/* A stop whose `city` matches no segment, or whose `date` falls outside
+          every stay, otherwise vanishes from the site with nothing but a build
+          warning to say so. Surfacing them here means a typo is visible to
+          whoever is reading the page, not just to whoever ran the build. */}
+      {
+        itinerary.unscheduled.length > 0 && (
+          <section class="unscheduled" id="unscheduled">
+            <h2>Not on the itinerary yet</h2>
+            <p class="hand">
+              These don't line up with a city or a date on the trip.
+            </p>
+            <StopList
+              stops={itinerary.unscheduled}
+              stopContent={stopContent}
+              layout="grid"
+            />
+          </section>
+        )
+      }
+    </main>
+  </div>
+
+  <Footer />
+</Base>
+
+<style>
+  /* The rail is a column of the page, not an overlay, so it scrolls its own
+     content and the sections keep the full width of theirs. */
+  .plan-layout {
+    display: grid;
+    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: 0 2.5rem;
+    max-width: 96rem;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  main {
+    min-width: 0;
+  }
+
+  .lone-back {
+    margin: 1.6rem 0 0;
+    font-size: 1.2rem;
+  }
+
+  .lone-back a {
+    color: var(--ink-muted);
+    text-decoration: none;
+  }
+
+  .no-cities {
+    padding: 5rem 0 6rem;
+    text-align: center;
+  }
+
+  .no-cities h1 {
+    margin: 0;
+    font-weight: 500;
+    font-size: clamp(2rem, 5vw, 2.8rem);
+  }
+
+  .no-cities p {
+    margin: 0.3rem 0 0;
+    font-size: 1.35rem;
+    color: var(--ink-muted);
+  }
+
+  .unscheduled {
+    padding: 3rem 0 4rem;
+  }
+
+  .unscheduled h2 {
+    margin: 0;
+    font-size: 1.6rem;
+  }
+
+  .unscheduled p {
+    margin: 0.2rem 0 1rem;
+    font-size: 1.25rem;
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 900px) {
+    .plan-layout {
+      grid-template-columns: minmax(0, 1fr);
+      padding-inline: 1rem;
+    }
+  }
+</style>

@@ -1,152 +1,55 @@
 ---
 import type { SegmentItinerary } from '../../lib/itinerary';
-import { citySlug, mapPoints } from '../../lib/itinerary';
-import { filterGroupsFor } from '../../lib/categories';
 import SegmentShell from './SegmentShell.astro';
-import ScheduledList from './ScheduledList.astro';
-import StopList from '../StopList.astro';
-import FilterBar from '../FilterBar.astro';
-import MapPreview from '../map/MapPreview.astro';
+import CityPhoto from './CityPhoto.astro';
+import StayCard from './StayCard.astro';
+import TravelCard from './TravelCard.astro';
+import DayByDay from './DayByDay.astro';
+import IdeaChips from './IdeaChips.astro';
 
 interface Props {
   si: SegmentItinerary;
   accent: string;
   index: number;
-  stopContent: Map<string, any>;
 }
 
-const { si, accent, index, stopContent } = Astro.props;
-const { segment, days, ideas, counts } = si;
-const { city } = segment.data;
-
-const segmentId = citySlug(city);
-// Trailing slash: build.format is `directory`, so this skips a Pages 301.
-const mapHref = `/map/${segmentId}/`;
-
-// Groups come from the ideas this list actually renders, not from every stop
-// in the city — a button that hides everything on screen is a broken button.
-const groups = filterGroupsFor(ideas.map((s) => s.data.category));
-
-// A parchment card with nothing on it, linking to a page with nothing on it,
-// is worse than no card. Both this and the mobile link reappear on their own
-// the moment the first coordinate lands.
-const hasPins = si.all.some((s) => s.data.lat != null && s.data.lng != null);
+const { si, accent, index } = Astro.props;
+const { segment, days, ideas } = si;
+const { city, lodging, arrive, depart, heroImage, heroAlt, tagline } =
+  segment.data;
 ---
 
-{/* pinMin is a floor, not a target: the grid row is already at least as tall
-    as the panel, so this only buys the sticky pin a little travel. Sized to
-    roughly one panel height — bigger values leave a chasm of blank paper
-    under a city that only has a few ideas in it so far. */}
-<SegmentShell si={si} accent={accent} index={index} pinMin="65vh">
-  {
-    hasPins && (
-      <MapPreview
-        slot="panel-extra"
-        points={mapPoints(si)}
-        city={city}
-        href={mapHref}
-      />
-    )
-  }
+<SegmentShell si={si} accent={accent} index={index}>
+  <Fragment slot="stay">
+    <CityPhoto
+      image={heroImage}
+      alt={heroAlt}
+      caption={tagline}
+      alt2={index % 2 === 1}
+    />
+    <StayCard city={city} lodging={lodging} />
+    <TravelCard arrive={arrive} depart={depart} />
+  </Fragment>
 
-  {/* The preview card can't live in the mobile hero (100svh, overflow hidden),
-      so the paper sheet gets a plain link instead. */}
-  {
-    hasPins && (
-      <a class="map-link-mobile note-strip" href={mapHref}>
-        <span aria-hidden="true">🗺️</span> Open the {city} map
-        <span aria-hidden="true">→</span>
-      </a>
-    )
-  }
+  <Fragment slot="plan">
+    <DayByDay days={days} arrive={arrive} />
+    <IdeaChips stops={ideas} city={city} />
+  </Fragment>
 
-  <ScheduledList days={days} count={counts.booked} />
-
-  <div class="list-head">
-    <h3>
-      {
-        counts.ideas > 0 ? (
-          <Fragment>
-            <span class="swash">{counts.ideas}</span>{' '}
-            {counts.ideas === 1 ? 'idea' : 'ideas'}
-          </Fragment>
-        ) : (
-          'Ideas'
-        )
-      }
-    </h3>
-    <FilterBar segmentId={segmentId} groups={groups} />
-  </div>
-
-  <StopList
-    stops={ideas}
-    stopContent={stopContent}
-    layout="grid"
-    animate
-    emptyNote={`Nothing on the ${city} list yet.`}
-  />
-
-  <div class="segment-notes rise-in">
+  <div class="segment-notes" slot="notes">
     <slot />
   </div>
 </SegmentShell>
 
 <style>
-  /* Desktop keeps the map in the sticky panel's preview card; this is the
-     mobile stand-in, styled like .sheet-lodging above it. */
-  .map-link-mobile {
-    display: none;
-    text-decoration: none;
-  }
-
-  @media (max-width: 768px) {
-    .map-link-mobile {
-      display: block;
-    }
-  }
-
-  /* --- List head: count + the filters, pinned while scrolling --- */
-  /* The sticky sits on this Astro wrapper rather than the island's root —
-     Astro wraps a client component in <astro-island>, and a sticky element
-     inside that wrapper has no runway to travel along. */
-  .list-head {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    padding: 0.7rem 0;
-    margin-bottom: 0.4rem;
-    /* Reserved height keeps hydration layout-neutral */
-    min-height: 3.4rem;
-    background: var(--seg-bg, var(--paper));
-    border-bottom: 1px solid var(--border);
-  }
-
-  @media (max-width: 768px) {
-    .list-head {
-      /* Above the paper sheet (z-index 2) that it scrolls within */
-      z-index: 5;
-    }
-  }
-
-  .list-head h3 {
-    margin: 0;
-    font-size: 1.5rem;
-  }
-
   .segment-notes {
-    margin-top: 1.5rem;
-    font-size: 0.95rem;
+    max-width: 74rem;
+    margin: 2rem auto 0;
+    font-size: 0.92rem;
     color: var(--ink-muted);
   }
 
   .segment-notes :global(p) {
     margin: 0.4rem 0;
   }
-
 </style>
-

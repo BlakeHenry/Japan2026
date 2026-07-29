@@ -144,8 +144,12 @@ const linkAttrs = href
   }
 
   /* Margin notes in handwriting, clamped to one ruled line */
+  /* Caveat sits small for its em box, so this runs larger than a sans note
+     would at the same weight of emphasis. The single-line clamp means bigger
+     type shows fewer words — readable and truncated beats cramped and whole. */
   .idea-body {
-    font-size: 0.88rem;
+    font-size: 1.1rem;
+    line-height: 1.35;
     color: var(--ink-muted);
     display: -webkit-box;
     -webkit-box-orient: vertical;

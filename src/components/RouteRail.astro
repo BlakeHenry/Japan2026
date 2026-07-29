@@ -1,0 +1,327 @@
+---
+import { Image } from 'astro:assets';
+import type { SegmentItinerary } from '../lib/itinerary';
+import { citySlug, formatStay } from '../lib/itinerary';
+import { travelEmoji } from '../lib/travel';
+import { TRIP_TITLE } from '../lib/trip';
+
+interface Props {
+  segments: SegmentItinerary[];
+  /** "Oct 13 – Oct 27", from the trip window rather than from the segments */
+  dateRange: string;
+  /** Nights across the whole trip window */
+  nights: number;
+}
+
+const { segments, dateRange, nights } = Astro.props;
+
+// The connector between card N and card N+1 is the *departing* city's
+// `depart`. Reading it off one side rather than reconciling Tokyo's depart
+// against Osaka's arrive means the rail can never contradict itself — and the
+// last city has no connector because there's nowhere after it to go.
+const stops = segments.map((si, i) => {
+  const { city, cityJa, start, end, heroImage } = si.segment.data;
+  return {
+    id: citySlug(city),
+    city,
+    cityJa,
+    heroImage,
+    // Dates only — the per-city night count is on the section header, and
+    // repeating it here just crowded the card.
+    stay: formatStay(start, end),
+    legs: i < segments.length - 1 ? (si.segment.data.depart ?? []) : null,
+  };
+});
+
+// "You are here" without JS: :target lands on the <section>, and CSS can't
+// hop from there to the matching rail card by itself. The set of cities is
+// known at build time, so the rules are just written out — one per city.
+// Specificity is (0,3,0) so it beats the scoped hover rule below regardless
+// of where this tag lands.
+const targetRules = stops
+  .map(
+    (s) =>
+      `.plan-layout:has(#${s.id}:target) .route-card[href="#${s.id}"] .route-city{background:var(--highlight)}`
+  )
+  .join('');
+---
+
+{/* The route, start to finish, as a column of taped photos. It's navigation,
+    so it's plain anchors into the sections already on the page — no island,
+    no selected-city state to keep in sync, and it works with JS off. */}
+<aside class="route" aria-label="Trip route">
+  <a class="back hand" href="/">← {TRIP_TITLE}</a>
+  {/* No "The route" heading — the aside's aria-label already names the
+      region, so the label was doing nothing a screen reader needed and
+      nothing the photos didn't already say. */}
+  <p class="route-range hand">
+    {`${dateRange} · ${nights} ${nights === 1 ? 'night' : 'nights'}`}
+  </p>
+
+  <ol class="cards">
+    {
+      stops.map((s) => (
+        <li>
+          <a class="route-card" href={`#${s.id}`}>
+            <span class="tape-strip" aria-hidden="true" />
+            <span class="card-media">
+              <Image
+                src={s.heroImage}
+                alt=""
+                widths={[320, 640]}
+                sizes="300px"
+                format="webp"
+                loading="lazy"
+                class="card-img"
+              />
+            </span>
+            <span class="card-foot">
+              <span class="route-city hand">
+                {s.city}
+                {s.cityJa && (
+                  <span class="card-ja" lang="ja" aria-hidden="true">
+                    {s.cityJa}
+                  </span>
+                )}
+              </span>
+              <span class="card-dates">{s.stay}</span>
+            </span>
+          </a>
+
+          {s.legs !== null && (
+            <div class="leg">
+              <span class="leg-line" aria-hidden="true" />
+              {s.legs.length > 0 ? (
+                <span class="leg-text hand">
+                  {s.legs.map((l) => (
+                    <span class="leg-row">
+                      <span aria-hidden="true">{travelEmoji(l.mode)}</span> {l.text}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                <span class="leg-text hand leg-empty">Nothing booked yet</span>
+              )}
+            </div>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</aside>
+
+<style is:inline set:html={targetRules}></style>
+
+<style>
+  .route {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100svh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    padding: 1.6rem 1.6rem 2.5rem 0;
+    border-right: 1px dashed #d6cbae;
+  }
+
+  .back {
+    font-size: 1.2rem;
+    color: var(--ink-muted);
+    text-decoration: none;
+  }
+
+  .route-range {
+    margin: 0.7rem 0 1.4rem;
+    font-size: 1.2rem;
+    color: #8a8172;
+  }
+
+  .cards {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .route-card {
+    position: relative;
+    display: block;
+    background: #fff;
+    padding: 0.5rem 0.5rem 0.35rem;
+    box-shadow: 0 5px 12px rgb(60 50 30 / 0.14);
+    text-decoration: none;
+    color: inherit;
+    rotate: -1.2deg;
+    transition:
+      rotate 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+
+  .cards li:nth-child(even) .route-card {
+    rotate: 1.2deg;
+  }
+
+  .route-card:hover,
+  .route-card:focus-visible {
+    color: inherit;
+    rotate: 0deg;
+    box-shadow: 0 10px 22px rgb(60 50 30 / 0.28);
+  }
+
+  .tape-strip {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    translate: -50% 0;
+    width: 74px;
+    height: 20px;
+    background: rgb(233 212 150 / 0.85);
+    rotate: -2deg;
+    box-shadow: 0 1px 3px rgb(60 50 30 / 0.15);
+  }
+
+  .card-media {
+    display: block;
+    overflow: hidden;
+    height: 86px;
+  }
+
+  .route-card :global(.card-img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .card-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.15rem 0.1rem;
+  }
+
+  .route-city {
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.1;
+    border-radius: 4px;
+    padding: 0 0.25rem;
+    margin-left: -0.25rem;
+  }
+
+  .route-card:hover .route-city,
+  .route-card:focus-visible .route-city {
+    background: var(--highlight);
+  }
+
+  .card-ja {
+    font-family: var(--font-ja);
+    font-weight: 400;
+    font-size: 0.82rem;
+    color: #a89264;
+    margin-left: 0.3rem;
+  }
+
+  .card-dates {
+    flex: none;
+    font-weight: 600;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #8a8172;
+  }
+
+  /* The leg is what separates one city card from the next, so its padding is
+     the gap between cities. Generous on purpose — the travel line often runs
+     to two lines, and tight against both photos it read as crowding. */
+  .leg {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: 1.9rem;
+    padding: 1.25rem 0;
+  }
+
+  .leg-line {
+    flex: none;
+    align-self: stretch;
+    border-left: 2px dashed #b0a68f;
+  }
+
+  .leg-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 1.1rem;
+    line-height: 1.25;
+    color: #6b655a;
+  }
+
+  .leg-empty {
+    color: #b0a68f;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .route-card {
+      transition: none;
+    }
+  }
+
+  /* Below the two-column breakpoint the rail stops being a rail: the photos
+     and the legs would be a long preamble before the first city, and the legs
+     are already in each city's own "Getting here & onward" card. What's left
+     is the part scrolling can't replace — a jump bar. */
+  @media (max-width: 900px) {
+    .route {
+      position: static;
+      max-height: none;
+      overflow: visible;
+      padding: 1.4rem 0 0;
+      border-right: 0;
+    }
+
+    .route-range {
+      margin-bottom: 0.8rem;
+    }
+
+    .cards {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      padding-bottom: 0.4rem;
+    }
+
+    .cards::-webkit-scrollbar {
+      display: none;
+    }
+
+    .route-card,
+    .cards li:nth-child(even) .route-card {
+      rotate: 0deg;
+      padding: 0.35rem 0.7rem;
+      white-space: nowrap;
+    }
+
+    .tape-strip,
+    .card-media,
+    .leg {
+      display: none;
+    }
+
+    .card-foot {
+      display: block;
+      padding: 0;
+    }
+
+    .route-city {
+      font-size: 1.15rem;
+    }
+
+    .card-dates {
+      display: block;
+      margin-top: 0.05rem;
+    }
+  }
+</style>

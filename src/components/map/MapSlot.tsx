@@ -99,7 +99,8 @@ export default function MapSlot({
     [points]
   );
 
-  // Paper fallback: the same chart geometry MapPreview draws on the index.
+  // Paper fallback: plotted from each stop's real lat/lng, so a dead Google
+  // still leaves a usable chart rather than an empty box.
   const positioned = useMemo(() => scatter(points), [points]);
 
   const jumpTo = (domId: string) => {

@@ -1,18 +1,15 @@
 /* ------------------------------------------------------------------
-   The paper chart, in all three of its sizes.
+   The paper chart.
 
    A treasure map laid on the table: parchment mat with a deckled edge,
    sepia-washed tiles, aged texture, a compass rose.
 
-   Shared by MapPreview.astro (static card on the index) and MapPanel.astro
-   (the live island on /map/<city>/), so it lives in a plain .css file rather
-   than either component. A .css file is un-scoped by definition — identical
-   semantics to `is:global` — and Vite emits it once per page no matter how
-   many components import it.
+   Used by MapPanel.astro (the live island on /map/<city>/). It lives in a
+   plain .css file rather than in the component because it once had a second
+   consumer, and because a .css file is un-scoped by definition — identical
+   semantics to `is:global` — while Vite still emits it once per page.
 
-   Everything here targets .mapslot and its descendants, which are leaves
-   inside the scroll column. None of it may move onto .segment, .segment-grid,
-   .panel-col, or .panel — see the rule block in SegmentShell.astro.
+   Everything here targets .mapslot and its descendants.
    ------------------------------------------------------------------ */
 
 .mapslot {
@@ -245,12 +242,6 @@
    -------------------------------------------------------------------- */
 
 /* The small linked card in the index page's sticky panel */
-.mapslot[data-variant='preview'] {
-  --map-h: clamp(7.5rem, 17vh, 11rem);
-  margin: 1rem 0 0;
-  padding: 0.55rem;
-}
-
 /* The full-bleed pane on /map/<city>/ */
 .mapslot[data-variant='page'] {
   --map-h: 100%;
@@ -301,10 +292,6 @@
   /* The mobile panel is a 100svh pinned hero with overflow: hidden, so a
      card appended there would be clipped. SegmentAreas renders a plain text
      link into the paper sheet instead. */
-  .mapslot[data-variant='preview'] {
-    display: none;
-  }
-
   .mapslot[data-variant='page'] {
     --map-h: 46svh;
     height: auto;

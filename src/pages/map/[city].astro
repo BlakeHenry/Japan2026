@@ -38,7 +38,7 @@ const groups = filterGroupsFor(si.all.map((s) => s.data.category));
 ---
 
 {/* The saved-list view: everything for one city, list beside a full-height
-    map. Deliberately outside the index page's parallax spine — those two
+    map. Deliberately outside the plan page's parallax spine — those two
     panes both want the whole viewport, which a vertical scroll can't give.
 
     #{segmentId} wraps both the rows and the map, which is the entire DOM
@@ -50,7 +50,7 @@ const groups = filterGroupsFor(si.all.map((s) => s.data.category));
 >
   <div class="map-page" id={segmentId} style={`--accent: ${accentFor(index)}`}>
     <div class="map-back">
-      <a href={`/#${segmentId}`}>← Back to the trip</a>
+      <a href={`/plan/#${segmentId}`}>← Back to the plan</a>
     </div>
 
     <div class="map-list">

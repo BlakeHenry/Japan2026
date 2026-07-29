@@ -17,8 +17,7 @@ const { points, segmentId, city, variant } = Astro.props;
 const glyphs = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.emoji]));
 ---
 
-{/* The live map island. Its non-interactive twin is MapPreview.astro, which
-    draws the same chart with no JS and no Google — keep the two in sync. */}
+{/* The live map island — the only thing on the site that loads Google. */}
 <MapSlot
   client:visible
   points={points}

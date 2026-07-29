@@ -1,0 +1,131 @@
+---
+import type { Stop } from '../../lib/itinerary';
+import { googleMapsUrl, stopDomId } from '../../lib/itinerary';
+import { CATEGORIES } from '../../lib/categories';
+
+interface Props {
+  stops: Stop[];
+  city: string;
+}
+
+const { stops, city } = Astro.props;
+
+const emojiFor = (key: string) =>
+  CATEGORIES.find((c) => c.key === key)?.emoji ?? '📍';
+
+// Same row-link priority the map pages use: coordinates beat a website,
+// because on the day "where is it" beats "what are its hours".
+const chips = stops.map((stop) => {
+  const { title, category, lat, lng, link } = stop.data;
+  const toMaps = lat != null && lng != null;
+  return {
+    id: stopDomId(stop.id),
+    title,
+    emoji: emojiFor(category),
+    href: toMaps ? googleMapsUrl(lat!, lng!) : (link ?? null),
+    toMaps,
+    destination: toMaps ? 'Google Maps' : 'their website',
+  };
+});
+
+// Only promise Maps when at least one chip actually opens it. A city whose
+// stops have no coordinates links to websites instead, and the label has to
+// say the truth about what tapping does.
+const anyMaps = chips.some((c) => c.toMaps);
+---
+
+<section class="ideas">
+  <span class="tape" data-tilt="right">
+    Ideas{anyMaps && ' · tap to open Maps'}
+  </span>
+  {
+    chips.length > 0 ? (
+      <div class="chips">
+        {chips.map((chip) =>
+          chip.href ? (
+            <a
+              class="chip"
+              id={chip.id}
+              href={chip.href}
+              target="_blank"
+              rel="noopener"
+            >
+              <span aria-hidden="true">{chip.emoji}</span>
+              {chip.title}
+              <span class="go" aria-hidden="true">
+                ↗
+              </span>
+              <span class="sr-only">(opens {chip.destination} in a new tab)</span>
+            </a>
+          ) : (
+            <span class="chip" id={chip.id}>
+              <span aria-hidden="true">{chip.emoji}</span>
+              {chip.title}
+            </span>
+          )
+        )}
+      </div>
+    ) : (
+      <p class="empty hand">Nothing on the {city} list yet.</p>
+    )
+  }
+</section>
+
+<style>
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+  }
+
+  /* Loose paper tags rather than buttons — the whole chip is the target, and
+     the nth-child tilts keep a wrapped block from reading as a grid. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--paper-raised);
+    box-shadow: 0 3px 8px rgb(60 50 30 / 0.14);
+    border-radius: 4px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.92rem;
+    color: var(--ink);
+    text-decoration: none;
+    rotate: -0.4deg;
+    transition:
+      background 0.15s ease,
+      rotate 0.15s ease,
+      translate 0.15s ease;
+  }
+
+  .chip:nth-child(even) {
+    rotate: 0.4deg;
+  }
+
+  a.chip:hover,
+  a.chip:focus-visible {
+    background: color-mix(in srgb, var(--highlight) 55%, var(--paper-raised));
+    color: var(--ink);
+    rotate: 0deg;
+    translate: 0 -2px;
+  }
+
+  .go {
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+  }
+
+  .empty {
+    margin: 0.9rem 0 0;
+    font-size: 1.2rem;
+    color: var(--ink-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chip {
+      transition: none;
+    }
+  }
+</style>

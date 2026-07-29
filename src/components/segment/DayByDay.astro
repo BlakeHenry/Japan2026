@@ -1,0 +1,151 @@
+---
+import type { Day } from '../../lib/itinerary';
+import { travelEmoji, type TravelMode } from '../../lib/travel';
+
+interface Leg {
+  mode: TravelMode;
+  text: string;
+}
+
+interface Props {
+  days: Day[];
+  /**
+   * How we get into the city. Rendered against the first day, which is the
+   * one day of a stay whose shape is already decided.
+   */
+  arrive?: Leg[];
+}
+
+const { days, arrive = [] } = Astro.props;
+
+const utc = { timeZone: 'UTC' } as const;
+const label = (d: Date) => ({
+  wd: d.toLocaleDateString('en-US', { ...utc, weekday: 'short' }),
+  md: d.toLocaleDateString('en-US', { ...utc, month: 'short', day: 'numeric' }),
+});
+---
+
+{/* Every day of the stay gets a row, booked or not. A free day is the point
+    of this trip, so it's stated ("Free") rather than left as a gap — and a
+    city with nothing booked at all reads as a column of free days, which is
+    an honest picture of where the planning stands. */}
+<section class="dbd">
+  <span class="tape">Day by day</span>
+  <ol class="days">
+    {
+      days.map((day, i) => {
+        const { wd, md } = label(day.date);
+        const legs = i === 0 ? arrive : [];
+        const free = day.reservations.length === 0 && legs.length === 0;
+        return (
+          <li class="day">
+            <span class="when">
+              {wd} · {md}
+            </span>
+            <span class="what">
+              {legs.map((l) => (
+                <span class="travel">
+                  <span aria-hidden="true">{travelEmoji(l.mode)}</span> {l.text}
+                </span>
+              ))}
+              {day.reservations.map((stop) => (
+                <span class="resv">
+                  <span class="resv-title">
+                    {stop.data.link ? (
+                      <a href={stop.data.link}>{stop.data.title}</a>
+                    ) : (
+                      stop.data.title
+                    )}
+                  </span>
+                  {stop.data.time && <span class="resv-time">{stop.data.time}</span>}
+                </span>
+              ))}
+              {free && <span class="free hand">Free</span>}
+            </span>
+          </li>
+        );
+      })
+    }
+  </ol>
+</section>
+
+<style>
+  .days {
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .day {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 0.4rem 1rem;
+    align-items: baseline;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed #d8cdb2;
+  }
+
+  .when {
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  .what {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .travel {
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: var(--ink-muted);
+  }
+
+  .resv {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  /* Highlighter drawn under the words rather than behind them — at this size
+     a filled chip would outshout the city name above it. */
+  .resv-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    box-shadow: inset 0 -0.35em color-mix(in srgb, var(--highlight) 75%, transparent);
+  }
+
+  .resv-title a {
+    text-decoration: none;
+  }
+
+  .resv-time {
+    flex: none;
+    font-weight: 700;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: #6b655a;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    background: var(--paper-raised);
+  }
+
+  .free {
+    font-size: 1.2rem;
+    color: #b0a68f;
+  }
+
+  @media (max-width: 480px) {
+    .day {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
