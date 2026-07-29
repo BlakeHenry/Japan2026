@@ -3,9 +3,16 @@
 Our itinerary for the 2026 Japan trip, as a site instead of a shared doc.
 Scroll through it here: **https://japantrip2026.io**
 
-It's a scrollytelling page — a sticky city panel on the left, day-by-day
-cards scrolling past on the right — built with [Astro](https://astro.build)
-and deployed automatically to GitHub Pages on every push to `main`.
+It's a browse-first page — a sticky city panel on the left, a filterable
+two-column list of ideas scrolling on the right — plus a full-screen map
+page per city at `/map/<city>/`. Built with [Astro](https://astro.build) and
+deployed automatically to GitHub Pages on every push to `main`.
+
+## Where things stand
+
+Only the destination and the dates are booked: **Japan, Oct 13–27 2026**
+(set in `src/lib/trip.ts`). No cities are picked yet, so the site is a hero
+and an empty itinerary. Add a segment to start a city, then hang stops off it.
 
 ## Adding or editing a stop
 
@@ -23,7 +30,8 @@ category: activity
 date: 2026-11-07
 time: "10:00"
 link: https://www.teamlab.art/e/planets/
-addedBy: Blake
+lat: 35.6495
+lng: 139.7900
 ---
 
 Digital art museum in Toyosu. Book tickets ~2 weeks ahead; go on a weekday.
@@ -35,11 +43,11 @@ Fields:
 | ---------- | -------- | ----------------------------------------------------------------------------------------------------------- |
 | `title`    | yes      | Name of the place/event                                                                                      |
 | `city`     | yes      | Must exactly match a segment's `city` to show up on the page                                                 |
-| `category` | yes      | One of `food`, `sight`, `activity`, `stay`, `travel`                                                         |
-| `date`     | no       | `YYYY-MM-DD`. **With** a date, it's a reservation card pinned to that day. **Without** one, it lands in the city's "While in {city}" list — use this for things that span the whole stay |
-| `time`     | no       | `"HH:MM"` (quoted) — orders same-day reservations                                                            |
-| `link`     | no       | Booking page, website, map, etc.                                                                             |
-| `addedBy`  | no       | Who suggested it                                                                                              |
+| `category` | no*      | Picks the filter button and the map-pin glyph. One of `coffee`, `food`, `bar`, `market`, `shop`, `temple`, `shrine`, `museum`, `view`, `walk`, `hike`, `onsen`, `sight`, `activity`, `stay`, `travel` — *required, but listed here because the set is long |
+| `date`     | no       | `YYYY-MM-DD`. **With** a date it's a booking, shown in the collapsible "Scheduled" block. **Without** one it's an idea in the city's list — that's the default and the norm |
+| `time`     | no       | `"HH:MM"` (quoted) — orders same-day bookings                                                                |
+| `link`     | no       | Official site or booking page                                                                                |
+| `lat`/`lng`| no       | Puts a pin on the city map and makes the row open Google Maps. Right-click a spot in Google Maps to copy the pair |
 
 The markdown body is a short free-form description — tips, booking notes,
 whatever's useful.
@@ -53,9 +61,8 @@ disappears.
 
 Each contiguous stay in one city is a file in
 [`src/content/segments/`](src/content/segments/), e.g. `01-tokyo.md`.
-Segments are what actually drive the page: their date ranges generate the
-day cards, and stops attach to a day by `date`, or to the segment generally
-by `city`.
+Segments are what actually drive the page: one city section per segment, and
+stops attach to a day by `date`, or to the segment generally by `city`.
 
 ```markdown
 ---
@@ -123,8 +130,9 @@ src/
   content/stops/*.md      one file per trip stop
   content.config.ts       frontmatter schemas for both collections
   lib/itinerary.ts        build-time helper: expands segments into days, attaches stops
-  layouts/Base.astro      HTML shell + global design tokens
-  components/             Hero, SegmentSection, DayCard, StopCard, Footer
+  layouts/Base.astro      HTML shell + global design tokens and shared marks
+  pages/map/[city].astro  full-screen map page per city
+  components/             Hero, SegmentAreas, StopList, IdeaCard, map/, Footer
   assets/segments/        city photos (processed via astro:assets)
 .github/workflows/deploy.yml   GitHub Pages deployment
 ```

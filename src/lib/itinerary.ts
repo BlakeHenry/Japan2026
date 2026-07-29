@@ -45,6 +45,24 @@ export const stopSlug = (id: string): string =>
 /** The DOM id a stop's card carries, so anything can scroll to it */
 export const stopDomId = (id: string): string => `stop-${stopSlug(id)}`;
 
+/**
+ * The slug for a city. The `#tokyo` hero pill, the `<section id>`, the
+ * `segmentId` both islands scope themselves to, and the `/map/<city>/` route
+ * param all have to agree, so they all come from here.
+ */
+export const citySlug = (city: string): string =>
+  city.trim().toLowerCase().replace(/\s+/g, '-');
+
+/**
+ * Deep link into Google Maps, for directions and hours on the day.
+ *
+ * Queries the coordinate rather than the title: a name search can resolve to
+ * a same-named place in the wrong city, and the coordinate is the one thing
+ * we know is right. Uses the documented Maps URLs API.
+ */
+export const googleMapsUrl = (lat: number, lng: number): string =>
+  `https://www.google.com/maps/search/?api=1&query=${lat}%2C${lng}`;
+
 export function expandDays(start: Date, end: Date): Date[] {
   const days: Date[] = [];
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
@@ -106,6 +124,16 @@ export function buildItinerary(segments: Segment[], stops: Stop[]): Itinerary {
         .filter((s) => dateKey(s.data.date!) === dateKey(date))
         .sort((a, b) => (a.data.time ?? '99:99').localeCompare(b.data.time ?? '99:99'));
       reservations.forEach((s) => {
+        // Dated stops attach by date alone, so a wrong `city` is otherwise
+        // completely invisible — the stop just quietly shows up under another
+        // city and never appears in `unscheduled`.
+        if (s.data.city !== segment.data.city) {
+          console.warn(
+            `[itinerary] booked stop "${s.data.title}" says city ` +
+              `"${s.data.city}" but its date lands in ${segment.data.city} — ` +
+              `dated stops attach by date, so check which one is wrong`
+          );
+        }
         placed.add(s.id);
         booked.push(s);
       });

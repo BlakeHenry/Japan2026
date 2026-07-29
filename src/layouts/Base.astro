@@ -1,10 +1,24 @@
 ---
+import { loadTrip } from '../lib/loadTrip';
+import { TRIP_TITLE } from '../lib/trip';
+
 interface Props {
   title: string;
   description?: string;
 }
 
-const { title, description = 'Our Japan 2026 trip itinerary' } = Astro.props;
+const {
+  title,
+  description = `Our ${TRIP_TITLE} trip itinerary`,
+} = Astro.props;
+
+// Derived from the segments' cityJa, so the font request can never disagree
+// with the content. No Japanese city names yet → no font request at all.
+const { kanjiSubset } = await loadTrip();
+const brushFontHref =
+  kanjiSubset.length > 0
+    ? `https://fonts.googleapis.com/css2?family=Reggae+One&display=swap&text=${encodeURIComponent(kanjiSubset)}`
+    : null;
 ---
 
 <html lang="en">
@@ -12,15 +26,18 @@ const { title, description = 'Our Japan 2026 trip itinerary' } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Reggae One thick-brush display face, subset via text= to exactly the
-         kanji used by segment cityJa fields (東京箱根都大阪, 7 glyphs, ~2 KB).
-         Extend the text= parameter when a new city is added. -->
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Reggae+One&display=swap&text=%E6%9D%B1%E4%BA%AC%E7%AE%B1%E6%A0%B9%E9%83%BD%E5%A4%A7%E9%98%AA"
-    />
+    {/* Reggae One thick-brush display face, subset via text= to exactly the
+        glyphs the segments actually use — a couple of KB rather than a couple
+        of hundred. Skipped entirely when no city has a cityJa. */}
+    {
+      brushFontHref && (
+        <Fragment>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+          <link rel="stylesheet" href={brushFontHref} />
+        </Fragment>
+      )
+    }
     <title>{title}</title>
     <slot name="head" />
   </head>
@@ -95,6 +112,99 @@ const { title, description = 'Our Japan 2026 trip itinerary' } = Astro.props;
   img {
     max-width: 100%;
     display: block;
+  }
+
+  /* --- Shared marks -------------------------------------------------------
+     Global because they're the site's handwriting, not any one component's.
+     A scoped rule compiles to `.x[data-astro-cid-…]` (0,2,0) and always beats
+     these (0,1,0), so a component can still tune one locally — see the hero's
+     .swash variant and the trimmed rules in Footer/404.
+
+     This block is the single source for these four names. Don't redefine them
+     globally elsewhere; map-paper.css is the only other global sheet and it
+     targets .mapslot* exclusively.
+     ---------------------------------------------------------------------- */
+
+  /* Handwritten margin notes, captions, and cues */
+  .hand {
+    font-family: var(--font-hand);
+  }
+
+  /* Marker-pen highlight blob. [data-size='lg'] is the hero's tuned variant:
+     at 5rem type the small radii read as a rectangle, not a swipe of ink. */
+  .swash {
+    display: inline-block;
+    padding: 0 0.4em;
+    background: var(--highlight);
+    border-radius: 0.6em 0.9em 0.7em 0.8em;
+    rotate: -1.2deg;
+  }
+
+  .swash[data-size='lg'] {
+    padding: 0 0.18em;
+    border-radius: 0.45em 0.35em 0.5em 0.4em / 0.65em 0.5em 0.4em 0.55em;
+  }
+
+  /* Neutral count chip — nights, pin counts. Deliberately not the highlighter:
+     these are facts, not emphasis. */
+  .pill {
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper-raised);
+    padding: 0.1rem 0.5rem;
+  }
+
+  /* Bordered aside on the mobile paper sheet. No `display` on purpose — both
+     users toggle their own at a breakpoint. */
+  .note-strip {
+    margin: 0 0 1.4rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+  }
+
+  /* Scroll-driven entry, opted into per element. Evergreen browsers only;
+     older ones get a clean static layout. Astro does NOT scope @keyframes, so
+     `rise` was already global by accident — this makes that deliberate before
+     three components reference it. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: 0 1.2rem;
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    .rise-in {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise-in {
+      animation: none;
+    }
+  }
+
+  /* Visually hidden, still announced */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {

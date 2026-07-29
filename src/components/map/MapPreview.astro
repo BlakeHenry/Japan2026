@@ -1,0 +1,129 @@
+---
+import { CATEGORIES } from '../../lib/categories';
+import { COMPASS_INNER } from '../../lib/compass';
+import type { MapPoint } from '../../lib/itinerary';
+import { scatter } from '../../lib/scatter';
+import '../../styles/map-paper.css';
+
+interface Props {
+  points: MapPoint[];
+  city: string;
+  href: string;
+}
+
+const { points, city, href } = Astro.props;
+
+const glyphs = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.emoji]));
+const positioned = scatter(points);
+---
+
+{/* The non-interactive twin of MapPanel/MapSlot: the same parchment chart,
+    drawn from the same scatter() geometry, but with no island and no Google
+    — the index page must cost zero Maps loads. The whole card is one link to
+    the city's full map page.
+
+    Pins here are decorative spans, not buttons: a link can't contain
+    interactive descendants, and a dozen focusable pins inside one link is a
+    tab-order disaster. The real pins live on /map/<city>/. */}
+<a class="map-preview" href={href}>
+  <span class="mapslot" data-variant="preview">
+    <span class="mapslot-field">
+      {
+        positioned.map((p) => (
+          <span
+            class="mapslot-pin"
+            data-dated={p.dated ? 'true' : undefined}
+            style={`left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%`}
+            aria-hidden="true"
+          >
+            {glyphs[p.category] ?? '📍'}
+          </span>
+        ))
+      }
+      <svg
+        class="mapslot-compass"
+        viewBox="0 0 100 100"
+        aria-hidden="true"
+        set:html={COMPASS_INNER}
+      />
+    </span>
+  </span>
+
+  {/* Visible text, not an aria-label: this both names the link and tells a
+      sighted reader that the parchment card is clickable at all. */}
+  <span class="map-preview-cue">
+    <span class="hand">Open the {city} map</span>
+    <span class="map-preview-count pill">{positioned.length} pinned</span>
+  </span>
+</a>
+
+<style>
+  .map-preview {
+    display: block;
+    margin-top: 1rem;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 4px;
+  }
+
+  .map-preview-cue {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+
+
+  .map-preview:hover .map-preview-cue {
+    color: var(--accent);
+  }
+
+  /* The chip itself is the global .pill */
+  .map-preview-count {
+    flex: none;
+  }
+
+  .map-preview:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* The card is one target: suppress the per-pin hover the live map uses and
+     lift the whole sheet instead. These reach into the shared map-paper.css
+     classes, which Astro's scoping doesn't rewrite, hence :global. */
+  .map-preview :global(.mapslot-pin) {
+    cursor: inherit;
+  }
+
+  .map-preview:hover :global(.mapslot-pin),
+  .map-preview:focus-visible :global(.mapslot-pin) {
+    scale: 1;
+    border-color: var(--border);
+    background: var(--paper-raised);
+  }
+
+  .map-preview:hover :global(.mapslot),
+  .map-preview:focus-visible :global(.mapslot) {
+    translate: 0 -2px;
+    filter: drop-shadow(0 14px 22px rgb(35 33 28 / 0.26))
+      drop-shadow(0 3px 6px rgb(35 33 28 / 0.2));
+  }
+
+  @media (max-width: 768px) {
+    /* The card itself is display:none under 768px (see map-paper.css); the
+       cue would otherwise be left floating in the pinned hero. */
+    .map-preview {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .map-preview:hover :global(.mapslot),
+    .map-preview:focus-visible :global(.mapslot) {
+      translate: 0;
+    }
+  }
+</style>

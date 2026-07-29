@@ -1,0 +1,193 @@
+---
+import Base from '../../layouts/Base.astro';
+import StopList from '../../components/StopList.astro';
+import FilterBar from '../../components/FilterBar.astro';
+import MapPanel from '../../components/map/MapPanel.astro';
+import { loadTrip } from '../../lib/loadTrip';
+import { TRIP_TITLE } from '../../lib/trip';
+import { citySlug, formatRange, mapPoints } from '../../lib/itinerary';
+import { filterGroupsFor } from '../../lib/categories';
+
+export async function getStaticPaths() {
+  const { itinerary } = await loadTrip();
+  // Only the trip-wide index travels as a prop. Passing the whole
+  // SegmentItinerary would drag Date objects and the pre-rendered <Content />
+  // components through Astro's prop channel; the index is enough to look the
+  // segment back up, and it is also what accentFor() keys off — so this city's
+  // accent matches the same city's section on the index page.
+  return itinerary.segments.map((si, i) => ({
+    params: { city: citySlug(si.segment.data.city) },
+    props: { index: i },
+  }));
+}
+
+const { index } = Astro.props;
+const { itinerary, stopContent, accentFor } = await loadTrip();
+const si = itinerary.segments[index];
+const { segment, ideas, booked, counts } = si;
+const { city, start, end } = segment.data;
+
+const segmentId = citySlug(city);
+
+// Booked first — they're the fixed anchors the loose ideas arrange themselves
+// around. `si.all` still drives the pins; only the reading order differs.
+const rows = [...booked, ...ideas];
+
+// Over every stop, not just the ideas: this page lists the booked ones too.
+const groups = filterGroupsFor(si.all.map((s) => s.data.category));
+---
+
+{/* The saved-list view: everything for one city, list beside a full-height
+    map. Deliberately outside the index page's parallax spine — those two
+    panes both want the whole viewport, which a vertical scroll can't give.
+
+    #{segmentId} wraps both the rows and the map, which is the entire DOM
+    contract MapSlot and Filters scope themselves to, so both islands work
+    here unchanged. */}
+<Base
+  title={`${city} map · ${TRIP_TITLE}`}
+  description={`Every place on our ${city} list, on the map.`}
+>
+  <div class="map-page" id={segmentId} style={`--accent: ${accentFor(index)}`}>
+    <div class="map-back">
+      <a href={`/#${segmentId}`}>← Back to the trip</a>
+    </div>
+
+    <div class="map-list">
+      <header class="map-head">
+        <h1>{city}</h1>
+        <p class="map-dates">
+          {formatRange(start, end)}
+          {
+            counts.total > 0 && (
+              <Fragment>
+                {' · '}
+                <span class="swash">{counts.total}</span>{' '}
+                {counts.total === 1 ? 'place' : 'places'}
+              </Fragment>
+            )
+          }
+        </p>
+        <FilterBar segmentId={segmentId} groups={groups} />
+      </header>
+      <StopList
+        stops={rows}
+        stopContent={stopContent}
+        layout="column"
+        emptyNote={`Nothing on the ${city} list yet.`}
+      />
+    </div>
+
+    <div class="map-pane">
+      <MapPanel
+        points={mapPoints(si)}
+        segmentId={segmentId}
+        city={city}
+        variant="page"
+      />
+    </div>
+  </div>
+</Base>
+
+<style>
+  /* DOM order is back → list → pane so tab order follows the reading order
+     instead of dumping the user into a dozen map pins first; grid-area puts
+     the map on the right regardless. */
+  .map-page {
+    display: grid;
+    grid-template-columns: minmax(21rem, 26rem) 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'back pane'
+      'list pane';
+    height: 100svh;
+    overflow: hidden; /* only .map-list scrolls */
+  }
+
+  .map-back {
+    grid-area: back;
+    padding: 0.75rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: var(--paper);
+  }
+
+  .map-back a {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  /* min-height: 0 is load-bearing — without it a 1fr grid row refuses to
+     shrink below its content and the column never scrolls. */
+  .map-list {
+    grid-area: list;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 1.1rem 3rem;
+    border-right: 1px solid var(--border);
+    background: var(--paper);
+  }
+
+  .map-pane {
+    grid-area: pane;
+    min-height: 0;
+    display: grid;
+  }
+
+  .map-head {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    padding: 0.9rem 0 0.6rem;
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .map-head h1 {
+    margin: 0;
+    font-size: 1.9rem;
+    line-height: 1.1;
+  }
+
+  .map-dates {
+    margin: 0.15rem 0 0.7rem;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 768px) {
+    /* Stacked: back bar, then the map, then the list scrolling under it.
+       The page itself scrolls here rather than the column. `order` puts the
+       map above the list visually while DOM order keeps tab order sane. */
+    .map-page {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      overflow: visible;
+    }
+
+    .map-back {
+      order: 0;
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      border-right: 0;
+    }
+
+    .map-pane {
+      order: 1;
+    }
+
+    .map-list {
+      order: 2;
+      overflow: visible;
+      border-right: 0;
+    }
+
+    .map-head {
+      z-index: 5;
+    }
+  }
+</style>

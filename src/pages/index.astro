@@ -2,15 +2,17 @@
 import Base from '../layouts/Base.astro';
 import Hero from '../components/Hero.astro';
 import SegmentAreas from '../components/segment/SegmentAreas.astro';
+import StopList from '../components/StopList.astro';
 import Footer from '../components/Footer.astro';
 import { loadTrip } from '../lib/loadTrip';
+import { TRIP, TRIP_TITLE } from '../lib/trip';
 import heroImage from '../assets/segments/hero.jpg';
 
 const { itinerary, stopContent, segmentContent, dateRange, cities, accentFor } =
   await loadTrip();
 ---
 
-<Base title="Japan 2026">
+<Base title={TRIP_TITLE}>
   <Hero
     image={heroImage}
     imageAlt="Chureito Pagoda overlooking Mount Fuji framed by autumn leaves"
@@ -20,6 +22,19 @@ const { itinerary, stopContent, segmentContent, dateRange, cities, accentFor } =
   />
 
   <main>
+    {/* Before any city is picked, the page is a hero and nothing else — say
+        so rather than ending in silence. */}
+    {
+      itinerary.segments.length === 0 && (
+        <section class="no-cities">
+          <h2>No cities yet</h2>
+          <p class="hand">
+            Two weeks in {TRIP.name}, and the itinerary is still a blank page.
+          </p>
+        </section>
+      )
+    }
+
     {
       itinerary.segments.map((si, i) => {
         const Notes = segmentContent.get(si.segment.id)!;
@@ -35,7 +50,64 @@ const { itinerary, stopContent, segmentContent, dateRange, cities, accentFor } =
         );
       })
     }
+
+    {/* A stop whose `city` matches no segment, or whose `date` falls outside
+        every stay, otherwise vanishes from the site with nothing but a build
+        warning to say so. Surfacing them here means a typo is visible to
+        whoever is reading the page, not just to whoever ran the build.
+
+        These rows sit outside any #segmentId, so neither island touches
+        them — no filter bar, no pin sync. That's correct. */}
+    {
+      itinerary.unscheduled.length > 0 && (
+        <section class="unscheduled" id="unscheduled">
+          <h2>Not on the itinerary yet</h2>
+          <p class="hand">These don't line up with a city or a date on the trip.</p>
+          <StopList
+            stops={itinerary.unscheduled}
+            stopContent={stopContent}
+            layout="grid"
+          />
+        </section>
+      )
+    }
   </main>
 
   <Footer />
 </Base>
+
+<style>
+  .no-cities {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4rem 1rem 5rem;
+    text-align: center;
+  }
+
+  .no-cities h2 {
+    margin: 0;
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+  }
+
+  .no-cities p {
+    margin: 0.3rem 0 0;
+    font-size: 1.1rem;
+    color: var(--ink-muted);
+  }
+
+  .unscheduled {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 3rem 1rem 4rem;
+  }
+
+  .unscheduled h2 {
+    margin: 0;
+    font-size: 1.6rem;
+  }
+
+  .unscheduled p {
+    margin: 0.2rem 0 1rem;
+    color: var(--ink-muted);
+  }
+</style>
