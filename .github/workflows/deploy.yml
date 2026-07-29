@@ -16,6 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: withastro/action@v3
+        env:
+          # Injected at build time so the key never lives in the repo. It IS
+          # still present in the built output — the Maps JS SDK runs in the
+          # browser — so the daily quota cap, not secrecy, is what prevents
+          # abuse. Use the production key here (referrer-restricted to
+          # japantrip2026.io, never localhost).
+          PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          PUBLIC_GOOGLE_MAPS_ID: ${{ vars.GOOGLE_MAPS_ID }}
 
   deploy:
     needs: build

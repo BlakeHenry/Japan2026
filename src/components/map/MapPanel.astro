@@ -1,0 +1,183 @@
+---
+import MapSlot from './MapSlot';
+import { CATEGORIES } from '../../lib/categories';
+import type { MapPoint } from '../../lib/itinerary';
+
+interface Props {
+  points: MapPoint[];
+  segmentId: string;
+  city: string;
+}
+
+const { points, segmentId, city } = Astro.props;
+
+const glyphs = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.emoji]));
+---
+
+<MapSlot
+  client:visible
+  points={points}
+  segmentId={segmentId}
+  city={city}
+  glyphs={glyphs}
+/>
+
+{/* React renders outside Astro's style scoping, so these are global but
+    namespaced under .mapslot. */}
+<style is:global>
+  .mapslot {
+    margin-top: 1.1rem;
+  }
+
+  /* On mobile the panel is a 100svh pinned hero with overflow: hidden, so a
+     map inside it is both invisible and useless. Hidden rather than relocated
+     — CSS can't move a node into the paper sheet, and a second instance would
+     mean a second hydration fighting over the same cards. Mobile keeps the
+     per-card "open in maps" links instead. */
+  @media (max-width: 768px) {
+    .panel .mapslot {
+      display: none;
+    }
+  }
+
+  .mapslot-field {
+    position: relative;
+    /* 4:3 not square — the whole panel (photo + text + map) has to fit inside
+       a short viewport or the sticky pin stops feeling pinned. */
+    aspect-ratio: 4 / 3;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: color-mix(in srgb, var(--paper-raised) 70%, var(--paper));
+    /* Faint surveyor's grid — reads as "map area" without pretending to be one */
+    background-image:
+      linear-gradient(rgb(35 33 28 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(35 33 28 / 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    overflow: hidden;
+    /* Isolate so Google's internal transforms/stacking stay contained. Safe
+       here — this is a leaf, NOT an ancestor of .panel, so it can't affect
+       the sticky pin or the view-timeline lookup. */
+    isolation: isolate;
+  }
+
+  /* The real basemap fills the field and sits under the readout */
+  .mapslot-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  /* Once Google is up, the paper scatter has done its job */
+  .mapslot-field[data-live] .mapslot-pin {
+    display: none;
+  }
+
+  /* Marker content: the same paper disc the fallback scatter uses, so the
+     map keeps the site's language instead of Google's red teardrops. */
+  .gm-pin {
+    display: grid;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper-raised);
+    box-shadow: 0 2px 6px rgb(35 33 28 / 0.28);
+    transition: scale 0.14s ease, border-color 0.14s ease;
+  }
+
+  .gm-pin[data-dated='true'] {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    border-width: 2px;
+  }
+
+  .gm-pin:hover,
+  .gm-pin:focus-visible,
+  .gm-pin[data-active='true'] {
+    outline: none;
+    scale: 1.28;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--highlight) 45%, var(--paper-raised));
+  }
+
+  .mapslot-pin {
+    position: absolute;
+    z-index: 2;
+    translate: -50% -50%;
+    display: grid;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper-raised);
+    box-shadow: 0 2px 6px rgb(35 33 28 / 0.18);
+    transition:
+      scale 0.14s ease,
+      border-color 0.14s ease;
+  }
+
+  .mapslot-pin[data-dated='true'] {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    border-width: 2px;
+  }
+
+  .mapslot-pin:hover,
+  .mapslot-pin:focus-visible,
+  .mapslot-pin[data-active='true'] {
+    outline: none;
+    z-index: 3;
+    scale: 1.28;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--highlight) 45%, var(--paper-raised));
+  }
+
+  .mapslot-readout {
+    position: absolute;
+    z-index: 4;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    margin: 0;
+    padding: 0.3rem 0.55rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--paper-raised) 92%, transparent);
+    border: 1px solid var(--border);
+    font-size: 0.76rem;
+    color: var(--ink-muted);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mapslot-readout[data-empty='true'] {
+    display: none;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mapslot-pin,
+    .gm-pin {
+      transition: none;
+    }
+  }
+</style>

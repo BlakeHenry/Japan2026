@@ -13,8 +13,13 @@ export interface Day {
 export interface SegmentItinerary {
   segment: Segment;
   days: Day[];
-  /** Undated stops for this city, shown once per segment */
-  pool: Stop[];
+  /** Undated stops — the free-roaming ideas that are most of this trip */
+  ideas: Stop[];
+  /** Dated stops in this segment, flattened and sorted by date then time */
+  booked: Stop[];
+  /** ideas ∪ booked — everything in this city (feeds the map pins) */
+  all: Stop[];
+  counts: { ideas: number; booked: number; total: number };
 }
 
 export interface Itinerary {
@@ -29,6 +34,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const dateKey = (d: Date): string => d.toISOString().slice(0, 10);
 
+/**
+ * Collection ids can contain slashes (`placeholders/coffee-shop-1`). That is
+ * legal in an HTML id but breaks `querySelector('#…')` and CSS selectors, so
+ * every id that becomes a DOM id or a JS key goes through here first.
+ */
+export const stopSlug = (id: string): string =>
+  id.replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** The DOM id a stop's card carries, so anything can scroll to it */
+export const stopDomId = (id: string): string => `stop-${stopSlug(id)}`;
+
 export function expandDays(start: Date, end: Date): Date[] {
   const days: Date[] = [];
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
@@ -36,6 +52,41 @@ export function expandDays(start: Date, end: Date): Date[] {
   }
   return days;
 }
+
+const byTitle = (a: Stop, b: Stop) => a.data.title.localeCompare(b.data.title);
+
+const byDateThenTime = (a: Stop, b: Stop) => {
+  const d = dateKey(a.data.date!).localeCompare(dateKey(b.data.date!));
+  if (d !== 0) return d;
+  return (a.data.time ?? '99:99').localeCompare(b.data.time ?? '99:99');
+};
+
+/**
+ * JSON-serializable stop data for client components (the map island).
+ * Deliberately contains no markdown — islands can't render Astro <Content />.
+ */
+export interface MapPoint {
+  id: string;
+  slug: string;
+  domId: string;
+  title: string;
+  category: string;
+  lat?: number;
+  lng?: number;
+  dated: boolean;
+}
+
+export const mapPoints = (si: SegmentItinerary): MapPoint[] =>
+  si.all.map((s) => ({
+    id: s.id,
+    slug: stopSlug(s.id),
+    domId: stopDomId(s.id),
+    title: s.data.title,
+    category: s.data.category,
+    lat: s.data.lat,
+    lng: s.data.lng,
+    dated: Boolean(s.data.date),
+  }));
 
 export function buildItinerary(segments: Segment[], stops: Stop[]): Itinerary {
   const ordered = [...segments].sort(
@@ -48,21 +99,35 @@ export function buildItinerary(segments: Segment[], stops: Stop[]): Itinerary {
 
   let tripDayNumber = 0;
   const result = ordered.map((segment) => {
+    const booked: Stop[] = [];
     const days = expandDays(segment.data.start, segment.data.end).map((date) => {
       tripDayNumber += 1;
       const reservations = dated
         .filter((s) => dateKey(s.data.date!) === dateKey(date))
         .sort((a, b) => (a.data.time ?? '99:99').localeCompare(b.data.time ?? '99:99'));
-      reservations.forEach((s) => placed.add(s.id));
+      reservations.forEach((s) => {
+        placed.add(s.id);
+        booked.push(s);
+      });
       return { date, tripDayNumber, reservations };
     });
 
-    const pool = undated
+    const ideas = undated
       .filter((s) => s.data.city === segment.data.city)
-      .sort((a, b) => a.data.title.localeCompare(b.data.title));
-    pool.forEach((s) => placed.add(s.id));
+      .sort(byTitle);
+    ideas.forEach((s) => placed.add(s.id));
 
-    return { segment, days, pool };
+    booked.sort(byDateThenTime);
+    const all = [...ideas, ...booked];
+
+    return {
+      segment,
+      days,
+      ideas,
+      booked,
+      all,
+      counts: { ideas: ideas.length, booked: booked.length, total: all.length },
+    };
   });
 
   const unscheduled = stops.filter((s) => !placed.has(s.id));

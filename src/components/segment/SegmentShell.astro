@@ -1,32 +1,43 @@
 ---
 import { Image } from 'astro:assets';
-import type { SegmentItinerary } from '../lib/itinerary';
-import { formatRange } from '../lib/itinerary';
-import DayCard from './DayCard.astro';
-import StopCard from './StopCard.astro';
+import type { SegmentItinerary } from '../../lib/itinerary';
+import { formatRange } from '../../lib/itinerary';
 
 interface Props {
   si: SegmentItinerary;
   accent: string;
-  stopContent: Map<string, any>;
+  /** Position in the trip — drives the alternating background + photo tilt */
+  index: number;
+  /**
+   * Minimum height for the scrolling column, i.e. how long the sticky panel
+   * stays pinned. See the note on pin duration in the styles below.
+   */
+  pinMin?: string;
+  /** Shrink the photo to free vertical room in the panel (map variants) */
+  compactMedia?: boolean;
 }
 
-const { si, accent, stopContent } = Astro.props;
-const { segment, days, pool } = si;
+const { si, accent, index, pinMin, compactMedia = false } = Astro.props;
+const { segment, days } = si;
 const { city, start, end, lodging, heroImage, heroAlt, tagline, cityJa } =
   segment.data;
 
 const id = city.toLowerCase().replace(/\s+/g, '-');
-const firstDay = days[0].tripDayNumber;
-const lastDay = days[days.length - 1].tripDayNumber;
+// `end` is the last full day and we leave the next morning, so the day count
+// and the night count are the same number.
 const nights = days.length;
+const alt = index % 2 === 1;
+
+const style = [`--accent: ${accent}`, pinMin && `--pin-min: ${pinMin}`]
+  .filter(Boolean)
+  .join('; ');
 ---
 
-<section class="segment" id={id} style={`--accent: ${accent}`}>
+<section class="segment" id={id} data-alt={alt} style={style}>
   <div class="segment-grid">
     <div class="panel-col">
       <aside class="panel">
-        <figure class="polaroid">
+        <figure class="polaroid" data-compact={compactMedia}>
           <div class="panel-media">
             <Image
               src={heroImage}
@@ -47,55 +58,54 @@ const nights = days.length;
             )
           }
           <h2 class="panel-city">{city}</h2>
-          <p class="panel-dates">
-            <span class="dates-range">{formatRange(start, end)}</span><span
-              class="dates-days"> · Days {firstDay}–{lastDay}</span>
-          </p>
+          <p class="panel-dates">{formatRange(start, end)}</p>
+          {/* Lodging is rendered twice on purpose: on desktop it belongs to the
+              sticky panel, on mobile it belongs to the paper sheet, and those
+              are different DOM parents — CSS can't relocate a node across
+              containers. `display: none` drops the inactive copy from the
+              accessibility tree, so only one is ever announced. */}
           <p class="panel-lodging">
             <span aria-hidden="true">🏨</span>
             {lodging.link ? <a href={lodging.link}>{lodging.name}</a> : lodging.name}
             <span class="nights">{nights} {nights === 1 ? 'night' : 'nights'}</span>
           </p>
         </div>
+        <slot name="panel-extra" />
       </aside>
     </div>
 
-    <div class="days-col">
+    <div class="scroll-col">
       <p class="sheet-lodging">
         <span aria-hidden="true">🏨</span>
         {lodging.link ? <a href={lodging.link}>{lodging.name}</a> : lodging.name}
         <span class="nights">{nights} {nights === 1 ? 'night' : 'nights'}</span>
       </p>
-
-      {days.map((day) => <DayCard day={day} stopContent={stopContent} />)}
-
-      {
-        pool.length > 0 && (
-          <section class="pool">
-            <h3>While in {city}</h3>
-            <p class="pool-hint">Not tied to a day — slot in wherever they fit.</p>
-            {pool.map((stop) => (
-              <StopCard stop={stop} Content={stopContent.get(stop.id)} />
-            ))}
-          </section>
-        )
-      }
-
-      <div class="segment-notes">
-        <slot />
-      </div>
+      <slot />
     </div>
   </div>
 </section>
 
 <style>
+  /* ------------------------------------------------------------------
+     This component owns the entire parallax / sticky spine. Every page
+     variant imports it so the effect is defined exactly once and cannot
+     drift between variants.
+
+     DO NOT add `contain`, `content-visibility`, `filter`, `transform`,
+     `backdrop-filter`, or `will-change: transform` to .segment,
+     .segment-grid, .panel-col, or .panel. Each of those creates a new
+     containing block or paint/scroll containment, which silently breaks
+     the sticky pin, the named view-timeline lookup, or any
+     position: fixed descendant.
+     ------------------------------------------------------------------ */
+
   .segment {
     --seg-bg: var(--paper);
     view-timeline: --seg block;
     padding: 4rem 1rem;
   }
 
-  .segment:nth-of-type(even) {
+  .segment[data-alt='true'] {
     --seg-bg: color-mix(in srgb, var(--paper-raised) 65%, var(--paper));
     background: var(--seg-bg);
   }
@@ -109,10 +119,20 @@ const nights = days.length;
   }
 
   /* .panel-col stretches to the full row height (default grid stretch),
-     giving the sticky panel room to travel while the days scroll. */
+     giving the sticky panel room to travel while the column scrolls. */
   .panel {
     position: sticky;
     top: clamp(1rem, 4vh, 2.5rem);
+  }
+
+  /* How long the panel stays pinned is simply how tall this column is.
+     Filtering can cut the list down to two rows, which would collapse the
+     column and kill the parallax — so the runway is declared here instead
+     of emerging from content. */
+  @media (min-width: 769px) {
+    .scroll-col {
+      min-height: var(--pin-min, auto);
+    }
   }
 
   .polaroid {
@@ -125,7 +145,7 @@ const nights = days.length;
     rotate: -1.4deg;
   }
 
-  .segment:nth-of-type(even) .polaroid {
+  .segment[data-alt='true'] .polaroid {
     rotate: 1.4deg;
   }
 
@@ -148,6 +168,12 @@ const nights = days.length;
        to feel right; keep the image squat enough on short screens. */
     aspect-ratio: 4 / 5;
     max-height: 46vh;
+  }
+
+  /* Compact mode frees ~20vh in the panel for a second element below it */
+  .polaroid[data-compact='true'] .panel-media {
+    aspect-ratio: 16 / 10;
+    max-height: 26vh;
   }
 
   .panel :global(.panel-img) {
@@ -205,42 +231,13 @@ const nights = days.length;
 
   /* first-of-type, not first-child: the mobile-only lodging note sits
      before the day cards in the DOM */
-  .days-col > :global(.day-card:first-of-type) {
+  .scroll-col > :global(.day-card:first-of-type) {
     border-top: none;
     padding-top: 0;
   }
 
   .sheet-lodging {
     display: none; /* desktop keeps lodging in the panel; shown on mobile */
-  }
-
-  .pool {
-    margin-top: 1.5rem;
-    padding: 1.25rem;
-    border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, var(--border));
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--highlight) 12%, transparent);
-  }
-
-  .pool h3 {
-    margin: 0;
-    font-size: 1.35rem;
-  }
-
-  .pool-hint {
-    margin: 0.2rem 0 1rem;
-    font-size: 0.85rem;
-    color: var(--ink-muted);
-  }
-
-  .segment-notes {
-    margin-top: 1.5rem;
-    font-size: 0.95rem;
-    color: var(--ink-muted);
-  }
-
-  .segment-notes :global(p) {
-    margin: 0.4rem 0;
   }
 
   /* Scroll-driven parallax — evergreen browsers only; older ones get a
@@ -250,13 +247,6 @@ const nights = days.length;
       animation: pan linear both;
       animation-timeline: --seg;
       animation-range: cover 0% cover 100%;
-    }
-
-    .pool,
-    .segment-notes {
-      animation: rise linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 40%;
     }
   }
 
@@ -269,29 +259,20 @@ const nights = days.length;
     }
   }
 
-  @keyframes rise {
-    from {
-      opacity: 0;
-      translate: 0 2rem;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .panel :global(.panel-img),
-    .pool,
-    .segment-notes {
+    .panel :global(.panel-img) {
       animation: none;
     }
   }
 
   @media (max-width: 768px) {
     .segment {
-      padding: 0; /* hero is full-bleed; the days sheet re-adds gutters */
+      padding: 0; /* hero is full-bleed; the sheet re-adds gutters */
     }
 
     /* Single column; the wrapper column dissolves (display: contents) so the
        sticky hero's containing block is the full-height segment, letting it
-       stay pinned while every day card scrolls past. */
+       stay pinned while the whole sheet scrolls past. */
     .segment-grid {
       display: block;
     }
@@ -304,7 +285,7 @@ const nights = days.length;
        never reflows segment heights mid-scroll. */
     .panel {
       top: 0;
-      z-index: 1; /* below the days sheet */
+      z-index: 1; /* below the paper sheet */
       height: 100vh;
       height: 100svh;
       overflow: hidden; /* clips the oversized kanji + panned image */
@@ -323,7 +304,7 @@ const nights = days.length;
       box-shadow: 0 10px 26px rgb(35 33 28 / 0.2);
     }
 
-    .segment:nth-of-type(even) .polaroid {
+    .segment[data-alt='true'] .polaroid {
       rotate: 1deg;
     }
 
@@ -346,7 +327,8 @@ const nights = days.length;
       white-space: nowrap;
     }
 
-    .panel-media {
+    .panel-media,
+    .polaroid[data-compact='true'] .panel-media {
       position: relative;
       aspect-ratio: 1;
       max-height: none;
@@ -355,9 +337,9 @@ const nights = days.length;
     /* .panel-img keeps its base 114% height — the same pan headroom the
        desktop parallax uses now applies to the full-screen hero. */
 
-    /* Legibility scrim: strong at the bottom (name/dates/lodging live
-       there), a whisper at the top. Neutral dark ink rather than the
-       per-city accent — accents can't be guaranteed to contrast on photos. */
+    /* Legibility scrim: strong at the bottom (name/dates live there), a
+       whisper at the top. Neutral dark ink rather than the per-city accent —
+       accents can't be guaranteed to contrast on photos. */
     .panel-media::after {
       content: '';
       position: absolute;
@@ -424,11 +406,7 @@ const nights = days.length;
       text-shadow: 0 1px 8px rgb(0 0 0 / 0.5);
     }
 
-    .dates-days {
-      display: none; /* the day-number range stays desktop-only */
-    }
-
-    /* Lodging moves out of the hero into the top of the days sheet */
+    /* Lodging moves out of the hero into the top of the paper sheet */
     .panel-lodging {
       display: none;
     }
@@ -445,7 +423,7 @@ const nights = days.length;
     }
 
     /* Opaque paper sheet that rides up over the pinned hero */
-    .days-col {
+    .scroll-col {
       position: relative;
       z-index: 2;
       margin-top: -1.25rem; /* rounded edge peeks over the photo bottom */
