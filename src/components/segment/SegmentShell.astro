@@ -65,9 +65,10 @@ const alt = index % 2 === 1;
     container-type: inline-size;
   }
 
-  /* The only thing separating one city from the next on a long page. The
-     mockup shows a single city, so it has no equivalent — this is what keeps
-     four of them from reading as one continuous sheet. */
+  /* In the tabbed /plan/ only one city shows at a time and this is just a
+     gentle tint — but in the no-:has() fallback the cities stack on one
+     long page again, and this is what keeps four of them from reading as
+     one continuous sheet. That fallback is why it stays. */
   .segment[data-alt='true'] {
     --seg-bg: color-mix(in srgb, var(--paper-raised) 65%, var(--paper));
     background: var(--seg-bg);

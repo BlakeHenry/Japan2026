@@ -44,6 +44,14 @@ const targetRules = stops
       `.plan-layout:has(#${s.id}:target) .route-card[href="#${s.id}"] .route-city{background:var(--highlight)}`
   )
   .join('');
+
+// A hashless load shows the first city's panel (see the tab rules in
+// plan.astro), so its card wears the highlight too — scoped to .segment
+// targets so a stray in-page anchor doesn't strip it.
+const defaultRule =
+  stops.length > 0
+    ? `.plan-layout:not(:has(.segment:target)) .route-card[href="#${stops[0].id}"] .route-city{background:var(--highlight)}`
+    : '';
 ---
 
 {/* The route, start to finish, as a column of taped photos. It's navigation,
@@ -64,17 +72,21 @@ const targetRules = stops
         <li>
           <a class="route-card" href={`#${s.id}`}>
             <span class="tape-strip" aria-hidden="true" />
-            <span class="card-media">
-              <Image
-                src={s.heroImage}
-                alt=""
-                widths={[320, 640]}
-                sizes="300px"
-                format="webp"
-                loading="lazy"
-                class="card-img"
-              />
-            </span>
+            {/* A city can predate its photo; the card just goes photo-less,
+                the same shape it always has on the mobile jump bar. */}
+            {s.heroImage && (
+              <span class="card-media">
+                <Image
+                  src={s.heroImage}
+                  alt=""
+                  widths={[320, 640]}
+                  sizes="300px"
+                  format="webp"
+                  loading="lazy"
+                  class="card-img"
+                />
+              </span>
+            )}
             <span class="card-foot">
               <span class="route-city hand">
                 {s.city}
@@ -110,7 +122,7 @@ const targetRules = stops
   </ol>
 </aside>
 
-<style is:inline set:html={targetRules}></style>
+<style is:inline set:html={targetRules + defaultRule}></style>
 
 <style>
   .route {

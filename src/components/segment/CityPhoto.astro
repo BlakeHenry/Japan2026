@@ -3,27 +3,35 @@ import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 
 interface Props {
-  image: ImageMetadata;
-  alt: string;
+  /** No image renders the frame with a "no photo yet" note — a city can
+      join the itinerary before anyone has a picture of it. */
+  image?: ImageMetadata;
+  alt?: string;
   caption?: string;
   /** Alternating tilt so a column of cities doesn't look stamped */
   alt2?: boolean;
 }
 
-const { image, alt, caption, alt2 = false } = Astro.props;
+const { image, alt = '', caption, alt2 = false } = Astro.props;
 ---
 
 <figure class="polaroid" data-alt={alt2}>
   <div class="polaroid-media">
-    <Image
-      src={image}
-      alt={alt}
-      widths={[480, 800, 1200]}
-      sizes="(max-width: 900px) 92vw, 340px"
-      format="webp"
-      loading="lazy"
-      class="polaroid-img"
-    />
+    {
+      image ? (
+        <Image
+          src={image}
+          alt={alt}
+          widths={[480, 800, 1200]}
+          sizes="(max-width: 900px) 92vw, 340px"
+          format="webp"
+          loading="lazy"
+          class="polaroid-img"
+        />
+      ) : (
+        <span class="polaroid-blank hand">No photo yet</span>
+      )
+    }
   </div>
   {caption && <figcaption class="hand">{caption}</figcaption>}
 </figure>
@@ -73,6 +81,18 @@ const { image, alt, caption, alt2 = false } = Astro.props;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* An empty polaroid still in its frame — the same "stated, not hidden"
+     treatment the stay and travel cards give an unbooked leg. */
+  .polaroid-blank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: color-mix(in srgb, var(--paper-raised) 60%, #fff);
+    font-size: 1.3rem;
+    color: var(--ink-muted);
   }
 
   figcaption {

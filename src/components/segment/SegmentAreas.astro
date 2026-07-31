@@ -5,6 +5,7 @@ import CityPhoto from './CityPhoto.astro';
 import StayCard from './StayCard.astro';
 import TravelCard from './TravelCard.astro';
 import DayByDay from './DayByDay.astro';
+import DayTrips from './DayTrips.astro';
 import IdeaChips from './IdeaChips.astro';
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
 
 const { si, accent, index } = Astro.props;
 const { segment, days, ideas } = si;
-const { city, lodging, arrive, depart, heroImage, heroAlt, tagline } =
+const { city, lodging, arrive, depart, dayTrips, heroImage, heroAlt, tagline } =
   segment.data;
 ---
 
@@ -33,6 +34,7 @@ const { city, lodging, arrive, depart, heroImage, heroAlt, tagline } =
 
   <Fragment slot="plan">
     <DayByDay days={days} arrive={arrive} />
+    <DayTrips trips={dayTrips} />
     <IdeaChips stops={ideas} city={city} />
   </Fragment>
 
