@@ -70,8 +70,25 @@ const segments = defineCollection({
         // as things are booked.
         arrive: z.array(leg).optional(),
         depart: z.array(leg).optional(),
-        heroImage: image(),
-        heroAlt: z.string(),
+        // Day trips out of this base — structure the trip chose, not
+        // bookings: a name and an optional handwritten aside, nothing more.
+        // Absence means this base has none, which is a settled state (unlike
+        // lodging or legs), so nothing renders for it — the one deliberate
+        // exception to the empty-states rule.
+        dayTrips: z
+          .array(
+            z.object({
+              name: z.string(),
+              note: z.string().optional(),
+            })
+          )
+          .optional(),
+        // Optional so a city can join the itinerary before anyone has a
+        // photo of it — CityPhoto and the route rail each render a designed
+        // "no photo yet" state instead. Alt text stays mandatory whenever
+        // there IS a photo (see the refine below).
+        heroImage: image().optional(),
+        heroAlt: z.string().optional(),
         tagline: z.string().optional(),
         // Native-script city name, drawn as brush calligraphy behind the
         // Latin name on the mobile hero. Any glyph used here must also be
@@ -79,7 +96,10 @@ const segments = defineCollection({
         // warns at build time if one is missing.
         cityJa: z.string().optional(),
       })
-      .refine((s) => s.end >= s.start, { message: 'end must be >= start' }),
+      .refine((s) => s.end >= s.start, { message: 'end must be >= start' })
+      .refine((s) => !s.heroImage || !!s.heroAlt, {
+        message: 'heroAlt is required when heroImage is set',
+      }),
 });
 
 export const collections = { stops, segments };

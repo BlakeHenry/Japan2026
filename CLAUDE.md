@@ -5,10 +5,12 @@ A static Astro site in three layers:
 - **`/`** — the cover. One viewport, no scroll: the dates, the title, a taped
   photo, and a single washi-tape button into the plan. It loads no map and
   nothing below the fold, because it is a cover and not a page.
-- **`/plan/`** — the itinerary. A sticky route rail on the left, and one
-  section per city beside it: a header, then the stay on the left (photo,
-  where we're sleeping, how we get there) and what we do with it on the right
-  (day by day, then ideas as tappable chips).
+- **`/plan/`** — the itinerary. A route rail on the left, and **one city at a
+  time** beside it: the page never scrolls between cities — the rail is the
+  only way to move, and the open city's panel scrolls by itself. A city
+  section is a header, then the stay on the left (photo, where we're
+  sleeping, how we get there) and what we do with it on the right (day by
+  day, then day trips, then ideas as tappable chips).
 - **`/map/<city>/`** — one full-screen map page per city: rows on the left,
   big map on the right, the way you'd browse a saved list in Google Maps.
 
@@ -16,24 +18,28 @@ Deployed to GitHub Pages automatically on every push to `main`.
 
 ## Current state
 
-**Nothing is booked.** Two cities are pencilled in, back to back, covering
-the whole window: **Tokyo** Oct 13–16 (checkout the 17th) and **Osaka**
-Oct 17–26 (checkout the 27th). Osaka only runs that long because there's
-nothing between it and Tokyo yet — Hakone and Kyoto will be carved out of
-that stretch, shortening it.
+**Nothing is booked.** Four cities are pencilled in, back to back, tiling
+the whole window: **Tokyo** Oct 13–16 (checkout the 17th), **Kawaguchiko**
+Oct 17–18 (checkout the 19th), **Kyoto** Oct 19–22 (checkout the 23rd), and
+**Osaka** Oct 23–26 (checkout the 27th). Day trips are pencilled in too, as
+segment `dayTrips`: Ito on Kawaguchiko (a stop-off on the travel day down
+from Tokyo), Nara and Uji on Kyoto, Himeji + Kobe on Osaka.
 
-Neither city has lodging, and no segment has `arrive` or `depart` legs, so
-every one of those blocks is showing its empty state. That is the honest
-picture, not a gap to paper over: **don't invent lodging, flights, transit,
-or reservations to make the page look fuller.** Everything on the site should
+No city has lodging, and no segment has `arrive` or `depart` legs, so every
+one of those blocks is showing its empty state. Kawaguchiko has no photo
+yet either — its segment has no `heroImage`, so its polaroid says "No photo
+yet" and its rail card renders photo-less. That is the honest picture, not
+a gap to paper over: **don't invent lodging, flights, transit, or
+reservations to make the page look fuller.** Everything on the site should
 be something a person actually chose.
 
 The only stops that exist are the five Jameson added (`addedBy: Jameson`) —
-three Pokémon / TCG stops in Osaka, two in Kyoto. The Kyoto pair sits in the
-**"Not on the itinerary yet"** strip at the bottom of `/plan/` and warns at
-build time. That's the designed behaviour, not a bug — add a Kyoto segment
-and they attach themselves, exactly as the Osaka three did. Tokyo has no
-stops at all, so its Ideas block shows its empty state too.
+three Pokémon / TCG stops in Osaka, two in Kyoto — and all five now attach
+to their city's segment, so the **"Not on the itinerary yet"** strip is
+empty and doesn't render. It's still there in the code (and must stay): a
+stop whose `city`/`date` matches no segment lands in it and warns at build
+time rather than silently vanishing. Tokyo and Kawaguchiko have no stops,
+so their Ideas blocks show their empty state.
 
 The trip window (Japan, Oct 13–27 2026) lives in
 [`src/lib/trip.ts`](src/lib/trip.ts), as a code constant rather than content
@@ -149,8 +155,12 @@ arrive:                 # optional — how we get here
 depart:                 # optional — how we leave
   - mode: train
     text: Romancecar · Shinjuku → Hakone-Yumoto · 1h 25m
-heroImage: ../../assets/segments/tokyo.jpg
-heroAlt: Shibuya scramble crossing lit up at night
+dayTrips:               # optional — day trips out of this base
+  - name: Nara          # name + optional handwritten aside, nothing more
+  - name: Ito
+    note: stop-off en route from Tokyo
+heroImage: ../../assets/segments/tokyo.jpg   # optional — see below
+heroAlt: Shibuya scramble crossing lit up at night   # required WITH heroImage
 tagline: Neon, backstreets, and the best breakfast on earth   # optional
 ---
 
@@ -165,6 +175,18 @@ label rather than information. `arrive` also fills the first Day-by-day row,
 which is the one day of a stay whose shape is already decided, and `depart`
 is what the route rail draws between this city and the next — so the leg
 joining two cities gets written on the departing side.
+
+`dayTrips` are structure the trip chose, not bookings: a name and an
+optional note, no links or dates. A base with none renders nothing — "no
+day trips planned" is a settled state, unlike lodging or legs, so this is
+the one deliberate exception to the empty-states rule. When a day trip
+grows an actual booking, that's a dated stop, not a day-trip field.
+
+`heroImage` is optional so a city can join the itinerary before anyone has
+a picture of it: without one, the city's polaroid renders as an empty frame
+saying "No photo yet" and its rail card goes photo-less (the shape the
+mobile jump bar always uses). `heroAlt` is required whenever `heroImage` is
+set — the schema enforces it.
 
 ## Commands
 
@@ -209,18 +231,37 @@ which looks exactly like "no map configured".
   segments, no scroll.
 - `src/pages/plan.astro` — the itinerary: a `RouteRail` beside one
   `SegmentAreas` per segment, then the "Not on the itinerary yet" strip and
-  `Footer`. Its `h1` is `sr-only` — the visible headings are the city names.
-  Astro emits it as `plan/index.html`, so **always link it with a trailing
-  slash** (`/plan/`) or GitHub Pages answers with a 301 first.
+  `Footer` (inside `<main>` — the page doesn't scroll, so outside the layout
+  it would be unreachable). Its `h1` is `sr-only` — the visible headings are
+  the city names. Astro emits it as `plan/index.html`, so **always link it
+  with a trailing slash** (`/plan/`) or GitHub Pages answers with a 301
+  first.
+  **The tab mechanism lives here**, in an `is:global` style block: the
+  layout is locked to `100svh`, `<main>` is the scroll container (the map
+  page's `min-height: 0` + `overflow-y: auto` pattern), `.segment`s are
+  `display: none` except the `:target` one, and a `:not(:has(...))` rule
+  shows the first city on a hashless load. `:target` is scoped to
+  `.segment` so targeting `#unscheduled` or a stop id falls back to the
+  first city instead of hiding everything. Because it's all `:target`, it
+  works with JS off, deep links (`/plan/#kyoto`) and the map pages' back
+  links open the right city, and Back/Forward walk through cities. The
+  whole block is gated behind `@supports selector(main:has(...))` —
+  browsers without `:has()` get the old design instead: every city stacked
+  on one long scrolling page. Don't ungate it; without the gate those
+  browsers would open to a blank page.
 - `src/components/RouteRail.astro` — the route, start to finish, as a column
-  of taped photo cards linking to the sections already on the page. Plain
-  anchors, no island. The connector between two cards is the **departing**
-  city's `depart` — read off one side so the rail can't contradict itself,
-  and the last city has none because there's nowhere after it. "You are here"
-  is `:target` plus a `:has()` rule generated per city at build time (CSS
-  can't hop from a targeted section to its rail card on its own); browsers
-  without `:has()` keep the hover treatment. Below 900px it drops the photos
-  and legs and becomes a horizontal jump bar — the legs are already in each
+  of taped photo cards, and **the only way to move between cities**. Plain
+  anchors, no island — each card selects its city's panel via `:target`.
+  The connector between two cards is the **departing** city's `depart` —
+  read off one side so the rail can't contradict itself, and the last city
+  has none because there's nowhere after it. "You are here" is `:target`
+  plus a `:has()` rule generated per city at build time (CSS can't hop from
+  a targeted section to its rail card on its own), with one extra generated
+  rule highlighting the first city on a hashless load to match the panel
+  the tab CSS shows; browsers without `:has()` keep the hover treatment.
+  A segment without `heroImage` renders its card photo-less. Below 900px it
+  drops the photos and legs and becomes a horizontal jump bar pinned in its
+  own grid row above the scrolling panel — the legs are already in each
   city's own "Getting here & onward" card, so nothing is lost.
 - `src/pages/map/[city].astro` — one full-screen map page per segment: rows on
   the left (booked first, then ideas), big map on the right, back link to
@@ -228,7 +269,8 @@ which looks exactly like "no map configured".
   which is also what `accentFor()` keys off so the accent matches `/plan/`.
   **Nothing currently links here** — the plan page's map preview card was
   dropped in the redesign. The pages still build and are the only place a
-  stop's body text and the category filters appear.
+  stop's body text and the category filters appear. The back link to
+  `/plan/#<city>` doubles as tab selection: it opens that city's panel.
 - `src/pages/404.astro` — GitHub Pages serves this for unmatched paths
 
 ### Lib
@@ -259,8 +301,10 @@ which looks exactly like "no map configured".
 
 - `SegmentShell.astro` — the frame: city header (highlighter chip + `cityJa` +
   stay range) and a two-column grid with `stay` and `plan` slots. Plain flow
-  — no sticky, no scroll-driven animation. Owns the alternating `--seg-bg`,
-  which is the only thing separating one city from the next on a long page.
+  — no sticky, no scroll-driven animation. Owns the alternating `--seg-bg` —
+  a gentle tint now that one city shows at a time, but in the no-`:has()`
+  fallback the cities stack on one long page again and it's the only thing
+  separating them, which is why it stays.
   Its one-column switch is a **container query**, not a media query: the
   route rail takes a fifth of the viewport out from under the section, so
   viewport width says nothing useful about how much room the columns have.
@@ -273,6 +317,11 @@ which looks exactly like "no map configured".
   renders; each half says "Nothing booked yet" on its own.
 - `DayByDay.astro` — every day of the stay, booked or not. Free days say
   "Free"; the first day also carries the `arrive` legs.
+- `DayTrips.astro` — the segment's `dayTrips` as paper tags (name + optional
+  Caveat note), between Day by day and Ideas: firmer than a maybe, looser
+  than a reservation. Not links. Renders nothing when the segment has none —
+  the one deliberate exception to the empty-states rule (see the segment
+  section above).
 - `IdeaChips.astro` — the undated stops as paper tags. Name and glyph only;
   no body text (see the stop rules above).
 

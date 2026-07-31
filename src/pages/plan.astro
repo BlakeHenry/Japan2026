@@ -89,11 +89,74 @@ const tripNights = Math.round(
           </section>
         )
       }
+
+      {/* Inside <main> because the page itself no longer scrolls (see the
+          tab rules below) — out there it would be unreachable. In here it
+          ends whichever panel is open, and in the no-:has() fallback it
+          sits where it always did: after everything. */}
+      <Footer />
     </main>
   </div>
-
-  <Footer />
 </Base>
+
+<style is:global>
+  /* One city at a time. The page never scrolls between cities — the rail is
+     the only way to move — and the open city's panel scrolls by itself, the
+     same frame the map pages use. It's all :target, so it works with JS off
+     and keeps /map/<city>/'s back links landing on the right city; Back and
+     Forward walk the hash history through cities for free. Global because
+     the rules have to reach SegmentShell's .segment across scoping.
+
+     Everything is gated on :has() — ungated, a browser without it would
+     drop only the "show the first city" rule and open to a blank page.
+     Gated, such browsers get the previous design instead: every city on
+     one long scrolling page. Same support line the rail's "you are here"
+     highlight already draws.
+
+     :target scoped to .segment so that targeting anything else in <main>
+     (#unscheduled, a stop id) falls back to showing the first city rather
+     than hiding all of them. When a hidden section becomes :target the
+     browser applies styles before scrolling it into view inside <main>,
+     and each section sits at the panel's top — so switching cities also
+     resets the panel's scroll. html's smooth scroll-behavior only governs
+     the root scroller, which no longer moves. */
+  @supports selector(main:has(.segment:target)) {
+    .plan-layout {
+      height: 100svh;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    /* min-height: 0 is load-bearing — without it a 1fr grid row refuses to
+       shrink below its content and the panel never scrolls (same note as
+       the map page's grid). */
+    .plan-layout > main {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .plan-layout > main > .segment {
+      display: none;
+    }
+
+    .plan-layout > main > .segment:target {
+      display: block;
+    }
+
+    .plan-layout > main:not(:has(.segment:target)) > .segment:first-of-type {
+      display: block;
+    }
+
+    /* The jump bar keeps row one to itself so it's always reachable; the
+       open city scrolls in the row below. 100svh keeps the URL-bar chrome
+       honest. */
+    @media (max-width: 900px) {
+      .plan-layout {
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+    }
+  }
+</style>
 
 <style>
   /* The rail is a column of the page, not an overlay, so it scrolls its own
