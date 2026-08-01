@@ -5,6 +5,7 @@ category: view
 link: http://www.kisoji-isan.com/s/en/heritage/24.html
 lat: 35.7726
 lng: 137.6995
+image: ../../assets/stops/nezame-no-toko.jpg
 ---
 
 White granite blocks carved by the emerald Kiso River, tied to the

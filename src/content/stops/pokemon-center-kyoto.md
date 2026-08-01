@@ -4,6 +4,7 @@ city: Kyoto
 category: activity
 link: https://shop.pokemon.co.jp/en/shop/pokemoncenter-kyoto/
 addedBy: Jameson
+image: ../../assets/stops/pokemon-center-kyoto.jpg
 ---
 
 **Recommendation: approve.** The delegation's primary Kyoto retail appointment: an official center with a distinctly Kyoto-inspired interior, rather than a generic merchandise counter. It is on the 2nd floor of SUINA Muromachi, directly connected to Karasuma Station Exit 26, and currently operates 10:00–20:00 daily.

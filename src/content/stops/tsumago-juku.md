@@ -5,6 +5,7 @@ category: sight
 link: https://tsumago.jp/
 lat: 35.5753
 lng: 137.5951
+image: ../../assets/stops/tsumago-juku.jpg
 ---
 
 Japan's first preserved post town — no wires, no vending machines,

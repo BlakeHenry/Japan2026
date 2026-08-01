@@ -5,6 +5,7 @@ category: temple
 link: https://en.visitkiso.com/tourist-attractions/kozenji-temple
 lat: 35.8533
 lng: 137.7029
+image: ../../assets/stops/kozenji-temple.jpg
 ---
 
 Asia's largest dry rock garden — raked "clouds over the valley" from
