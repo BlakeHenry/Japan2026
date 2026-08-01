@@ -29,6 +29,13 @@ const stops = segments.map((si, i) => {
     // Dates only — the per-city night count is on the section header, and
     // repeating it here just crowded the card.
     stay: formatStay(start, end),
+    // Sub-entries hanging off this base's card — day trips happen *from*
+    // the base, so they sit between the card and its departure leg.
+    trips: si.dayTrips.map((dt) => ({
+      slug: dt.slug,
+      name: dt.trip.data.name,
+      cityJa: dt.trip.data.cityJa,
+    })),
     legs: i < segments.length - 1 ? (si.segment.data.depart ?? []) : null,
   };
 });
@@ -37,12 +44,18 @@ const stops = segments.map((si, i) => {
 // hop from there to the matching rail card by itself. The set of cities is
 // known at build time, so the rules are just written out — one per city.
 // Specificity is (0,3,0) so it beats the scoped hover rule below regardless
-// of where this tag lands.
+// of where this tag lands. Each day trip gets a pair: full highlight on its
+// own tag, plus a washed-out one on the parent's card — "you are here,
+// roughly" — which never fights the parent's own rule because only one
+// section is :target at a time.
 const targetRules = stops
-  .map(
-    (s) =>
-      `.plan-layout:has(#${s.id}:target) .route-card[href="#${s.id}"] .route-city{background:var(--highlight)}`
-  )
+  .flatMap((s) => [
+    `.plan-layout:has(#${s.id}:target) .route-card[href="#${s.id}"] .route-city{background:var(--highlight)}`,
+    ...s.trips.flatMap((t) => [
+      `.plan-layout:has(#${t.slug}:target) .subtrip[href="#${t.slug}"] .subtrip-name{background:var(--highlight)}`,
+      `.plan-layout:has(#${t.slug}:target) .route-card[href="#${s.id}"] .route-city{background:color-mix(in srgb, var(--highlight) 45%, transparent)}`,
+    ]),
+  ])
   .join('');
 
 // A hashless load shows the first city's panel (see the tab rules in
@@ -99,6 +112,24 @@ const defaultRule =
               <span class="card-dates">{s.stay}</span>
             </span>
           </a>
+
+          {s.trips.length > 0 && (
+            <ul class="subtrips">
+              {s.trips.map((t) => (
+                <li>
+                  <a class="subtrip" href={`#${t.slug}`}>
+                    <span class="subtrip-branch" aria-hidden="true" />
+                    <span class="subtrip-name">{t.name}</span>
+                    {t.cityJa && (
+                      <span class="subtrip-ja" lang="ja" aria-hidden="true">
+                        {t.cityJa}
+                      </span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {s.legs !== null && (
             <div class="leg">
@@ -243,6 +274,69 @@ const defaultRule =
     color: #8a8172;
   }
 
+  /* Day trips hang off their base's card as smaller paper tags on a dashed
+     spine — the same line language as the legs, so "branches off this stop"
+     reads without a label. Indent matches .leg so spine and leg-line align
+     into one route. */
+  .subtrips {
+    margin: 0.55rem 0 0 1.9rem;
+    padding: 0.15rem 0 0.15rem 0;
+    list-style: none;
+    border-left: 2px dashed #b0a68f;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .subtrip {
+    display: inline-flex;
+    align-items: baseline;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .subtrip-branch {
+    flex: none;
+    align-self: center;
+    width: 0.8rem;
+    border-top: 2px dashed #b0a68f;
+    margin-right: 0.45rem;
+  }
+
+  .subtrip-name {
+    background: var(--paper-raised);
+    box-shadow: 0 3px 8px rgb(60 50 30 / 0.14);
+    border-radius: 4px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    rotate: -0.4deg;
+    transition:
+      background 0.15s ease,
+      rotate 0.15s ease;
+  }
+
+  .subtrips li:nth-child(even) .subtrip-name {
+    rotate: 0.4deg;
+  }
+
+  .subtrip:hover .subtrip-name,
+  .subtrip:focus-visible .subtrip-name {
+    background: var(--highlight);
+    rotate: 0deg;
+  }
+
+  .subtrip:hover {
+    color: inherit;
+  }
+
+  .subtrip-ja {
+    font-family: var(--font-ja);
+    font-size: 0.72rem;
+    color: #a89264;
+    margin-left: 0.4rem;
+  }
+
   /* The leg is what separates one city card from the next, so its padding is
      the gap between cities. Generous on purpose — the travel line often runs
      to two lines, and tight against both photos it read as crowding. */
@@ -274,7 +368,8 @@ const defaultRule =
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .route-card {
+    .route-card,
+    .subtrip-name {
       transition: none;
     }
   }
@@ -309,6 +404,12 @@ const defaultRule =
       display: none;
     }
 
+    .cards > li {
+      display: flex;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
     .route-card,
     .cards li:nth-child(even) .route-card {
       rotate: 0deg;
@@ -318,8 +419,40 @@ const defaultRule =
 
     .tape-strip,
     .card-media,
-    .leg {
+    .leg,
+    .subtrip-branch {
       display: none;
+    }
+
+    /* In the jump bar the tags flatten into pills after their base. The
+       dashed outline carries the "sub-location" reading that the spine did
+       on desktop. */
+    .subtrips {
+      margin: 0;
+      padding: 0;
+      border-left: 0;
+      flex-direction: row;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
+    .subtrips li {
+      display: flex;
+    }
+
+    .subtrip {
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .subtrip-name,
+    .subtrips li:nth-child(even) .subtrip-name {
+      rotate: 0deg;
+      white-space: nowrap;
+      background: transparent;
+      box-shadow: none;
+      border: 1px dashed #b0a68f;
+      padding: 0.3rem 0.7rem;
     }
 
     .card-foot {

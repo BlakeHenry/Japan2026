@@ -5,12 +5,14 @@ A static Astro site in three layers:
 - **`/`** — the cover. One viewport, no scroll: the dates, the title, a taped
   photo, and a single washi-tape button into the plan. It loads no map and
   nothing below the fold, because it is a cover and not a page.
-- **`/plan/`** — the itinerary. A route rail on the left, and **one city at a
-  time** beside it: the page never scrolls between cities — the rail is the
-  only way to move, and the open city's panel scrolls by itself. A city
-  section is a header, then the stay on the left (photo, where we're
-  sleeping, how we get there) and what we do with it on the right (day by
-  day, then day trips, then ideas as tappable chips).
+- **`/plan/`** — the itinerary. A route rail on the left, and **one section at
+  a time** beside it: the page never scrolls between sections — the rail is
+  the only way to move, and the open panel scrolls by itself. A city section
+  is a header, then the stay on the left (photo, where we're sleeping, how we
+  get there) and what we do with it on the right (day by day, then ideas as
+  tappable chips). Day trips are **sub-locations**: they hang off their base's
+  rail card as smaller tags and open their own panel — same frame as a base,
+  minus lodging and Day by day.
 - **`/map/<city>/`** — one full-screen map page per city: rows on the left,
   big map on the right, the way you'd browse a saved list in Google Maps.
 
@@ -22,8 +24,10 @@ Deployed to GitHub Pages automatically on every push to `main`.
 the whole window: **Tokyo** Oct 13–16 (checkout the 17th), **Kawaguchiko**
 Oct 17–18 (checkout the 19th), **Kyoto** Oct 19–22 (checkout the 23rd), and
 **Osaka** Oct 23–26 (checkout the 27th). Day trips are pencilled in too, as
-segment `dayTrips`: Ito on Kawaguchiko (a stop-off on the travel day down
-from Tokyo), Nara and Uji on Kyoto, Himeji + Kobe on Osaka.
+their own collection (`src/content/daytrips/`): Ito on Kawaguchiko (a
+stop-off on the travel day down from Tokyo), Nara and Uji on Kyoto, and
+Himeji + Kobe on Osaka (one combined outing, one file). None has a photo or
+legs yet, so their panels show the same empty frames the bases do.
 
 No city has lodging, and no segment has `arrive` or `depart` legs, so every
 one of those blocks is showing its empty state. Kawaguchiko has no photo
@@ -155,10 +159,6 @@ arrive:                 # optional — how we get here
 depart:                 # optional — how we leave
   - mode: train
     text: Romancecar · Shinjuku → Hakone-Yumoto · 1h 25m
-dayTrips:               # optional — day trips out of this base
-  - name: Nara          # name + optional handwritten aside, nothing more
-  - name: Ito
-    note: stop-off en route from Tokyo
 heroImage: ../../assets/segments/tokyo.jpg   # optional — see below
 heroAlt: Shibuya scramble crossing lit up at night   # required WITH heroImage
 tagline: Neon, backstreets, and the best breakfast on earth   # optional
@@ -176,17 +176,56 @@ which is the one day of a stay whose shape is already decided, and `depart`
 is what the route rail draws between this city and the next — so the leg
 joining two cities gets written on the departing side.
 
-`dayTrips` are structure the trip chose, not bookings: a name and an
-optional note, no links or dates. A base with none renders nothing — "no
-day trips planned" is a settled state, unlike lodging or legs, so this is
-the one deliberate exception to the empty-states rule. When a day trip
-grows an actual booking, that's a dated stop, not a day-trip field.
-
 `heroImage` is optional so a city can join the itinerary before anyone has
 a picture of it: without one, the city's polaroid renders as an empty frame
 saying "No photo yet" and its rail card goes photo-less (the shape the
 mobile jump bar always uses). `heroAlt` is required whenever `heroImage` is
 set — the schema enforces it.
+
+## Day trips (one file per outing)
+
+A day trip is a **sub-location of a base**: one markdown file in
+`src/content/daytrips/`, rendered as a smaller tag hanging off its parent's
+rail card and — when selected — a panel of its own. The panel is the base
+frame minus what a day trip doesn't have: **no lodging** (we sleep at the
+base) and **no Day by day** (which day is still unchosen). Both are absent
+by design, not fields waiting to be added.
+
+```markdown
+---
+name: Himeji + Kobe     # display name — also becomes the section slug
+parent: Osaka           # required — must exactly match a segment's city
+cityJa: "姫路・神戸"     # optional — joins the same derived font subset
+note: one day, castle then harbour   # optional — renders where a base shows dates
+cities:                 # optional — stop-matching keys for a combined outing;
+  - Himeji              # defaults to [name], so single-town trips omit it
+  - Kobe
+there:                  # optional — how we get there, same leg shape as arrive
+  - mode: train
+    text: Shinkansen · Shin-Osaka → Himeji · 30m
+back:                   # optional — how we get back
+heroImage: ../../assets/segments/nara.jpg    # optional
+heroAlt: ...            # required WITH heroImage
+tagline: ...            # optional
+---
+
+Free-form notes, shown at the end of the panel.
+```
+
+Rules:
+
+- An undated stop whose `city` matches one of the trip's matching keys
+  (`cities`, else `name`) becomes an idea chip on the day-trip panel instead
+  of the unscheduled strip. Don't use a segment's city as a matching key —
+  the segment claims those stops first, and the build warns if you try.
+- A combined outing ("Himeji + Kobe") is **one file**, because it's one
+  pencilled day — `cities` is how both towns' stops find it.
+- Deliberately no dates and no lodging. When a day trip grows an actual
+  booking, that's a dated stop, not a day-trip field.
+- Every section slug (`citySlug` of segment cities and day-trip names)
+  shares one `:target` namespace on `/plan/` — a collision fails the build.
+- Day-trip stops appear on **no `/map/` page** (those are per-segment).
+  Accepted for now; fold them into the parent's map if that ever matters.
 
 ## Commands
 
@@ -230,12 +269,15 @@ which looks exactly like "no map configured".
 - `src/pages/index.astro` — the cover. `Hero` and nothing else: no footer, no
   segments, no scroll.
 - `src/pages/plan.astro` — the itinerary: a `RouteRail` beside one
-  `SegmentAreas` per segment, then the "Not on the itinerary yet" strip and
-  `Footer` (inside `<main>` — the page doesn't scroll, so outside the layout
-  it would be unreachable). Its `h1` is `sr-only` — the visible headings are
-  the city names. Astro emits it as `plan/index.html`, so **always link it
-  with a trailing slash** (`/plan/`) or GitHub Pages answers with a 301
-  first.
+  `SegmentAreas` per segment (each followed by its `DayTripPanel`s — the
+  Fragment flattens, so every panel is a **direct child of `<main>`**, which
+  the tab CSS requires, and the first child must stay a base city for the
+  hashless-load `:first-of-type` rule), then the "Not on the itinerary yet"
+  strip and `Footer` (inside `<main>` — the page doesn't scroll, so outside
+  the layout it would be unreachable). Its `h1` is `sr-only` — the visible
+  headings are the city names. Astro emits it as `plan/index.html`, so
+  **always link it with a trailing slash** (`/plan/`) or GitHub Pages
+  answers with a 301 first.
   **The tab mechanism lives here**, in an `is:global` style block: the
   layout is locked to `100svh`, `<main>` is the scroll container (the map
   page's `min-height: 0` + `overflow-y: auto` pattern), `.segment`s are
@@ -259,10 +301,14 @@ which looks exactly like "no map configured".
   a targeted section to its rail card on its own), with one extra generated
   rule highlighting the first city on a hashless load to match the panel
   the tab CSS shows; browsers without `:has()` keep the hover treatment.
-  A segment without `heroImage` renders its card photo-less. Below 900px it
-  drops the photos and legs and becomes a horizontal jump bar pinned in its
-  own grid row above the scrolling panel — the legs are already in each
-  city's own "Getting here & onward" card, so nothing is lost.
+  Day trips render as `.subtrip` tags under their base's card, on a dashed
+  spine that continues the leg-line language; each gets a generated rule
+  pair — full highlight on its own tag plus a washed-out one on the parent's
+  card ("you are here, roughly"). A segment without `heroImage` renders its
+  card photo-less. Below 900px it drops the photos, legs, and spine and
+  becomes a horizontal jump bar pinned in its own grid row above the
+  scrolling panel — day trips flatten to dashed-outline pills after their
+  base, because the jump bar is the only navigation on mobile.
 - `src/pages/map/[city].astro` — one full-screen map page per segment: rows on
   the left (booked first, then ideas), big map on the right, back link to
   `/plan/#<city>`. `getStaticPaths` passes only the trip-wide segment index,
@@ -281,10 +327,14 @@ which looks exactly like "no map configured".
   assigns per-city accent colors, derives the kanji subset for the Japanese
   face, and warns when a segment falls outside the trip window
 - `src/lib/itinerary.ts` — splits stops into `ideas` (undated) / `booked`
-  (dated) per segment; `stopSlug`/`stopDomId` sanitize collection ids for DOM
+  (dated) per segment, and attaches day trips to their parent (each with its
+  own claimed ideas); `stopSlug`/`stopDomId` sanitize collection ids for DOM
   use (ids can contain slashes); `mapPoints` serializes stops for the map
-  island. `citySlug` is the single source for a city's anchor, `<section id>`,
-  island `segmentId`, and `/map/<city>/` route param — they must all agree.
+  island. `citySlug` is the single source for a city's or day trip's anchor,
+  `<section id>`, island `segmentId`, and `/map/<city>/` route param — they
+  must all agree. It strips punctuation ("Himeji + Kobe" → `himeji-kobe`)
+  because a `+` in an id would break the generated `:has()` CSS, and
+  `buildItinerary` fails the build on a slug collision.
   `formatStay` renders a stay as arrival→checkout ("Oct 13–17"); `formatRange`
   renders days-in-city ("Oct 13 – Oct 16") and is what the map pages use.
 - `src/lib/travel.ts` — travel modes and their glyphs, same shape as
@@ -299,8 +349,11 @@ which looks exactly like "no map configured".
 
 ### The city section (`src/components/segment/`)
 
-- `SegmentShell.astro` — the frame: city header (highlighter chip + `cityJa` +
-  stay range) and a two-column grid with `stay` and `plan` slots. Plain flow
+- `SegmentShell.astro` — the frame, shared by base and day-trip panels:
+  header (highlighter chip + `titleJa` + subline) and a two-column grid with
+  `stay` and `plan` slots, plus an optional `badge` slot above the header
+  (the day-trip marker). A day-trip panel passes its **parent's** `alt` so
+  the pair reads as one tinted band in the no-`:has()` fallback. Plain flow
   — no sticky, no scroll-driven animation. Owns the alternating `--seg-bg` —
   a gentle tint now that one city shows at a time, but in the no-`:has()`
   fallback the cities stack on one long page again and it's the only thing
@@ -310,20 +363,22 @@ which looks exactly like "no map configured".
   viewport width says nothing useful about how much room the columns have.
   That needs `container-type: inline-size` on `.segment`, which is only safe
   because this component no longer owns a sticky pin or a view-timeline.
-- `SegmentAreas.astro` — composes the two columns and nothing else.
+- `SegmentAreas.astro` — composes a base's two columns and nothing else.
+- `DayTripPanel.astro` — a day trip's panel: badge (a `.tape` anchor —
+  "🎒 Day trip from <parent>" — that doubles as the way back up, since one
+  tap re-targets the parent's section), hero polaroid, "Getting there &
+  back", and Ideas. No `StayCard`, no `DayByDay` — structurally absent.
 - `CityPhoto.astro` — the taped polaroid, tilt alternating with the segment.
 - `StayCard.astro` — "Staying at". **Always renders**, booked or not.
 - `TravelCard.astro` — "Getting here & onward", Arrive and Depart. Always
-  renders; each half says "Nothing booked yet" on its own.
+  renders; each half says "Nothing booked yet" on its own. Heading and the
+  two labels are props with those defaults — `DayTripPanel` passes "Getting
+  there & back" with There/Back.
 - `DayByDay.astro` — every day of the stay, booked or not. Free days say
   "Free"; the first day also carries the `arrive` legs.
-- `DayTrips.astro` — the segment's `dayTrips` as paper tags (name + optional
-  Caveat note), between Day by day and Ideas: firmer than a maybe, looser
-  than a reservation. Not links. Renders nothing when the segment has none —
-  the one deliberate exception to the empty-states rule (see the segment
-  section above).
 - `IdeaChips.astro` — the undated stops as paper tags. Name and glyph only;
-  no body text (see the stop rules above).
+  no body text (see the stop rules above). Day-trip panels reuse it with the
+  trip's claimed stops.
 
 ### Shared components
 
@@ -361,8 +416,13 @@ it's one file per family: **EB Garamond** (`--font-display`), **Caveat**
 been tuned, so match them rather than the raw default.
 
 **Yuji Syuku** (`--font-ja`) is requested separately and subset via `text=` to
-exactly the glyphs the segments' `cityJa` values use — a couple of KB. With no
-`cityJa` anywhere the request doesn't happen at all.
+exactly the glyphs the segments' and day trips' `cityJa` values use — a couple
+of KB. With no `cityJa` anywhere the request doesn't happen at all.
+
+The favicon (`public/favicon.svg`) is the Japan flag redrawn in the site's
+palette — paper field, accent-red sun, tan hairline. SVG only; there's no
+raster tooling in the repo, so no apple-touch-icon (Safari falls back to its
+default) — a deliberate omission, not a gap.
 
 ## Architectural rules
 
@@ -374,10 +434,13 @@ exactly the glyphs the segments' `cityJa` values use — a couple of KB. With no
   than left as a gap. `IdeaChips`, `StopList`, and `.mapslot-blank` each say
   when they're empty. Copy on the page stays user-facing — authoring guidance
   lives here instead.
-- Shared marks (`.hand`, `.swash`, `.tape`, `.pill`, `.note-strip`,
-  `.rise-in`) are defined once in `Base.astro`'s global block. Scoped rules
-  are (0,2,0) and always win, so a component can still tune one locally — see
-  `.hero-cta`, which is `.tape` at button size.
+- Shared marks (`.hand`, `.swash`, `.tape`, `.tape-icon`, `.pill`,
+  `.note-strip`, `.rise-in`) are defined once in `Base.astro`'s global block.
+  Scoped rules are (0,2,0) and always win, so a component can still tune one
+  locally — see `.hero-cta`, which is `.tape` at button size. `.tape-icon` is
+  the emoji leading a section tape (🏨 Staying at, 🚄 travel, 🗓️ Day by day,
+  💡 Ideas, 🎒 the day-trip badge) — always `aria-hidden`, and **sections
+  wear icons, buttons don't** (the cover CTA and footer tapes stay bare).
 - React islands (`Filters`, `MapSlot`) are leaves: they orchestrate static
   Astro DOM via data attributes and never render stop content, because
   markdown bodies can only be rendered by Astro's `render()` in frontmatter.

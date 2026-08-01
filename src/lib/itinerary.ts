@@ -2,12 +2,21 @@ import type { CollectionEntry } from 'astro:content';
 
 type Segment = CollectionEntry<'segments'>;
 type Stop = CollectionEntry<'stops'>;
+type DayTrip = CollectionEntry<'daytrips'>;
 
 export interface Day {
   date: Date;
   /** 1-based day number across the whole trip */
   tripDayNumber: number;
   reservations: Stop[];
+}
+
+export interface DayTripItinerary {
+  trip: DayTrip;
+  /** citySlug(name) — the section id and the rail sub-entry's anchor */
+  slug: string;
+  /** Undated stops whose `city` matches one of the trip's matching keys */
+  ideas: Stop[];
 }
 
 export interface SegmentItinerary {
@@ -20,6 +29,8 @@ export interface SegmentItinerary {
   /** ideas ∪ booked — everything in this city (feeds the map pins) */
   all: Stop[];
   counts: { ideas: number; booked: number; total: number };
+  /** Day trips out of this base, in collection-id order */
+  dayTrips: DayTripItinerary[];
 }
 
 export interface Itinerary {
@@ -46,12 +57,18 @@ export const stopSlug = (id: string): string =>
 export const stopDomId = (id: string): string => `stop-${stopSlug(id)}`;
 
 /**
- * The slug for a city. The `#tokyo` hero pill, the `<section id>`, the
- * `segmentId` both islands scope themselves to, and the `/map/<city>/` route
- * param all have to agree, so they all come from here.
+ * The slug for a city or day-trip name. The `#tokyo` hero pill, the
+ * `<section id>`, the `segmentId` both islands scope themselves to, and the
+ * `/map/<city>/` route param all have to agree, so they all come from here.
+ * Strips punctuation, not just spaces — "Himeji + Kobe" must not put a `+`
+ * (a CSS combinator) into the build-time-generated `:has(#…:target)` rules.
  */
 export const citySlug = (city: string): string =>
-  city.trim().toLowerCase().replace(/\s+/g, '-');
+  city
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 /**
  * Deep link into Google Maps, for directions and hours on the day.
@@ -106,10 +123,54 @@ export const mapPoints = (si: SegmentItinerary): MapPoint[] =>
     dated: Boolean(s.data.date),
   }));
 
-export function buildItinerary(segments: Segment[], stops: Stop[]): Itinerary {
+/** A day trip claims stops by these `city` values — `cities` when set (a
+    combined outing like "Himeji + Kobe" spans two towns), else its name. */
+const dayTripKeys = (t: DayTrip): string[] => t.data.cities ?? [t.data.name];
+
+export function buildItinerary(
+  segments: Segment[],
+  stops: Stop[],
+  daytrips: DayTrip[] = []
+): Itinerary {
   const ordered = [...segments].sort(
     (a, b) => a.data.start.getTime() - b.data.start.getTime()
   );
+
+  const segmentCities = new Set(ordered.map((s) => s.data.city));
+  for (const t of daytrips) {
+    if (!segmentCities.has(t.data.parent)) {
+      console.warn(
+        `[itinerary] day trip "${t.data.name}" (${t.id}) names parent ` +
+          `"${t.data.parent}" which matches no segment city — it renders nowhere`
+      );
+    }
+    for (const key of dayTripKeys(t)) {
+      if (segmentCities.has(key)) {
+        console.warn(
+          `[itinerary] day trip "${t.data.name}" matches stops by "${key}", ` +
+            `but that's a segment city — the segment claims those stops first, ` +
+            `so they'll never reach the day trip`
+        );
+      }
+    }
+  }
+
+  // Every section slug shares one `:target` namespace on /plan/. A collision
+  // doesn't error anywhere on its own — it just quietly breaks navigation and
+  // the generated rail-highlight CSS — so it fails the build the way a bad
+  // frontmatter field would.
+  const slugs = [
+    ...ordered.map((s) => citySlug(s.data.city)),
+    ...daytrips.map((t) => citySlug(t.data.name)),
+    'unscheduled',
+  ];
+  const dupes = [...new Set(slugs.filter((s, i) => slugs.indexOf(s) !== i))];
+  if (dupes.length > 0) {
+    throw new Error(
+      `[itinerary] duplicate section slug(s): ${dupes.join(', ')} — every ` +
+        `segment city and day-trip name must slug uniquely`
+    );
+  }
 
   const dated = stops.filter((s) => s.data.date);
   const undated = stops.filter((s) => !s.data.date);
@@ -145,6 +206,18 @@ export function buildItinerary(segments: Segment[], stops: Stop[]): Itinerary {
       .sort(byTitle);
     ideas.forEach((s) => placed.add(s.id));
 
+    const dayTrips = daytrips
+      .filter((t) => t.data.parent === segment.data.city)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((t) => {
+        const keys = dayTripKeys(t);
+        const tripIdeas = undated
+          .filter((s) => keys.includes(s.data.city))
+          .sort(byTitle);
+        tripIdeas.forEach((s) => placed.add(s.id));
+        return { trip: t, slug: citySlug(t.data.name), ideas: tripIdeas };
+      });
+
     booked.sort(byDateThenTime);
     const all = [...ideas, ...booked];
 
@@ -155,6 +228,7 @@ export function buildItinerary(segments: Segment[], stops: Stop[]): Itinerary {
       booked,
       all,
       counts: { ideas: ideas.length, booked: booked.length, total: all.length },
+      dayTrips,
     };
   });
 

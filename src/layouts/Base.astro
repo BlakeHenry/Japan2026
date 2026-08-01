@@ -26,6 +26,9 @@ const jaFontHref =
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    {/* The Japan flag, redrawn in the site's palette — paper field, accent-red
+        sun, and a tan hairline so it doesn't vanish on a white tab bar. */}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     {/* Unconditional now — the three text faces below are always requested, so
         the handshake is always worth warming. */}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -180,6 +183,17 @@ const jaFontHref =
   .tape[data-tilt='right'] {
     clip-path: polygon(0 6%, 98% 0, 100% 94%, 2% 100%);
     rotate: 1.2deg;
+  }
+
+  /* Leading emoji on a section tape. Decorative (always aria-hidden), sized
+     up from the tape's tiny caps because an emoji at 0.63rem is a smudge,
+     and pulled out of the letterspacing so the tracking doesn't gap it from
+     its word. Sections wear icons; buttons (the cover CTA) don't. */
+  .tape > .tape-icon {
+    font-size: 1.45em;
+    letter-spacing: normal;
+    margin-right: 0.35em;
+    vertical-align: -0.12em;
   }
 
   /* Neutral count chip — nights, pin counts. Deliberately not the highlighter:

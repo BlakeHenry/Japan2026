@@ -1,43 +1,47 @@
 ---
-import type { SegmentItinerary } from '../../lib/itinerary';
-import { citySlug, formatStay } from '../../lib/itinerary';
-
 interface Props {
-  si: SegmentItinerary;
+  /** The section's `:target` id — always from citySlug() */
+  id: string;
+  title: string;
+  titleJa?: string;
+  /** The line under the title — a base's dates, a day trip's aside */
+  subline?: string;
   accent: string;
-  /** Position in the trip — drives the alternating background */
-  index: number;
+  /** Drives the alternating background tint. A day-trip panel passes its
+      parent's value so, in the no-:has() fallback where every section stacks
+      on one page, a base and its day trips read as one tinted band. */
+  alt: boolean;
+  /** Marks a day-trip panel — a styling hook, not a behavior switch: the
+      tab CSS keys off .segment either way. */
+  daytrip?: boolean;
 }
 
-const { si, accent, index } = Astro.props;
-const { segment, days } = si;
-const { city, start, end, cityJa } = segment.data;
-
-const id = citySlug(city);
-// `end` is the last full day and we leave the next morning, so the day count
-// and the night count are the same number.
-const nights = days.length;
-const alt = index % 2 === 1;
+const { id, title, titleJa, subline, accent, alt, daytrip = false } =
+  Astro.props;
 ---
 
-{/* The city header, then two columns: the stay itself on the left (photo,
+{/* The header, then two columns: the stay itself on the left (photo,
     lodging, how we get here), what we do with it on the right (day by day,
     ideas). Both slots are plain flow — no sticky, no scroll-driven anything,
     so a city is one readable block whatever its height. */}
-<section class="segment" id={id} data-alt={alt} style={`--accent: ${accent}`}>
+<section
+  class:list={['segment', { daytrip }]}
+  id={id}
+  data-alt={alt}
+  style={`--accent: ${accent}`}
+>
   <div class="segment-inner">
+    <slot name="badge" />
     <header class="segment-head">
-      <h2 class="city"><span class="city-name">{city}</span></h2>
+      <h2 class="city"><span class="city-name">{title}</span></h2>
       {
-        cityJa && (
+        titleJa && (
           <span class="city-ja" lang="ja" aria-hidden="true">
-            {cityJa}
+            {titleJa}
           </span>
         )
       }
-      <p class="stay">
-        {`${formatStay(start, end)} · ${nights} ${nights === 1 ? 'night' : 'nights'}`}
-      </p>
+      {subline && <p class="stay">{subline}</p>}
     </header>
 
     <div class="segment-grid">

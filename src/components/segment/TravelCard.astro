@@ -9,9 +9,20 @@ interface Leg {
 interface Props {
   arrive?: Leg[];
   depart?: Leg[];
+  /** A base reads arrival/departure; a day trip passes "Getting there &
+      back" with There/Back labels and its out/return legs. */
+  heading?: string;
+  firstLabel?: string;
+  secondLabel?: string;
 }
 
-const { arrive = [], depart = [] } = Astro.props;
+const {
+  arrive = [],
+  depart = [],
+  heading = 'Getting here & onward',
+  firstLabel = 'Arrive',
+  secondLabel = 'Depart',
+} = Astro.props;
 ---
 
 {/* A leg exists only once it's booked, so an empty section means "not booked
@@ -19,9 +30,11 @@ const { arrive = [], depart = [] } = Astro.props;
     renders: every city is one we arrive in and leave, and hiding the whole
     thing would make an unbooked trip look like a settled one. */}
 <div class="card">
-  <span class="tape" data-tilt="right">Getting here &amp; onward</span>
+  <span class="tape" data-tilt="right"
+    ><span class="tape-icon" aria-hidden="true">🚄</span>{heading}</span
+  >
 
-  <p class="leg-head">Arrive</p>
+  <p class="leg-head">{firstLabel}</p>
   {
     arrive.length > 0 ? (
       <ul class="legs">
@@ -39,7 +52,7 @@ const { arrive = [], depart = [] } = Astro.props;
     )
   }
 
-  <p class="leg-head">Depart</p>
+  <p class="leg-head">{secondLabel}</p>
   {
     depart.length > 0 ? (
       <ul class="legs">

@@ -3,16 +3,21 @@
 Our itinerary for the 2026 Japan trip, as a site instead of a shared doc.
 Scroll through it here: **https://japantrip2026.io**
 
-It's a browse-first page — a sticky city panel on the left, a filterable
-two-column list of ideas scrolling on the right — plus a full-screen map
-page per city at `/map/<city>/`. Built with [Astro](https://astro.build) and
-deployed automatically to GitHub Pages on every push to `main`.
+The cover at `/` opens into the itinerary at `/plan/`: a route rail of
+taped photo cards on the left, and one city at a time beside it — the rail
+is the only way to move between cities. Day trips hang off their base's
+rail card as smaller tags and open their own panel. There's also a
+full-screen map page per city at `/map/<city>/`. Built with
+[Astro](https://astro.build) and deployed automatically to GitHub Pages on
+every push to `main`.
 
 ## Where things stand
 
-Only the destination and the dates are booked: **Japan, Oct 13–27 2026**
-(set in `src/lib/trip.ts`). No cities are picked yet, so the site is a hero
-and an empty itinerary. Add a segment to start a city, then hang stops off it.
+The dates are booked — **Japan, Oct 13–27 2026** (set in
+`src/lib/trip.ts`) — and four cities are pencilled in back to back: Tokyo,
+Kawaguchiko, Kyoto, Osaka, with day trips to Ito, Nara, Uji, and
+Himeji + Kobe. Nothing else is booked yet: no lodging, no legs, and most
+blocks are showing their (deliberate) empty states.
 
 ## Adding or editing a stop
 
@@ -125,14 +130,16 @@ and DNS). There's no separate deploy step to run — merging is publishing.
 
 ```
 src/
-  pages/index.astro       homepage: hero + segment sections
+  pages/index.astro       the cover: hero + one button into /plan/
+  pages/plan.astro        the itinerary: route rail + one section at a time
   content/segments/*.md   one file per contiguous stay (city, lodging, dates)
+  content/daytrips/*.md   one file per day trip out of a base
   content/stops/*.md      one file per trip stop
-  content.config.ts       frontmatter schemas for both collections
+  content.config.ts       frontmatter schemas for the three collections
   lib/itinerary.ts        build-time helper: expands segments into days, attaches stops
   layouts/Base.astro      HTML shell + global design tokens and shared marks
   pages/map/[city].astro  full-screen map page per city
-  components/             Hero, SegmentAreas, StopList, IdeaCard, map/, Footer
+  components/             Hero, RouteRail, segment/, StopList, IdeaCard, map/, Footer
   assets/segments/        city photos (processed via astro:assets)
 .github/workflows/deploy.yml   GitHub Pages deployment
 ```

@@ -70,19 +70,6 @@ const segments = defineCollection({
         // as things are booked.
         arrive: z.array(leg).optional(),
         depart: z.array(leg).optional(),
-        // Day trips out of this base — structure the trip chose, not
-        // bookings: a name and an optional handwritten aside, nothing more.
-        // Absence means this base has none, which is a settled state (unlike
-        // lodging or legs), so nothing renders for it — the one deliberate
-        // exception to the empty-states rule.
-        dayTrips: z
-          .array(
-            z.object({
-              name: z.string(),
-              note: z.string().optional(),
-            })
-          )
-          .optional(),
         // Optional so a city can join the itinerary before anyone has a
         // photo of it — CityPhoto and the route rail each render a designed
         // "no photo yet" state instead. Alt text stays mandatory whenever
@@ -102,4 +89,39 @@ const segments = defineCollection({
       }),
 });
 
-export const collections = { stops, segments };
+// One markdown file per day trip in src/content/daytrips/. A day trip is a
+// sub-location of a base: it gets its own panel and rail entry, but no dates
+// (which day is still unchosen) and no lodging (we sleep at the base) — both
+// absences are by design, not fields waiting to be filled in.
+const daytrips = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/daytrips' }),
+  schema: ({ image }) =>
+    z
+      .object({
+        // Display name — also the section slug, so "Himeji + Kobe" and any
+        // future name must slug uniquely against the segment cities
+        // (buildItinerary fails the build on a collision).
+        name: z.string(),
+        // Must exactly match a segment's `city`, the same way stops do.
+        parent: z.string(),
+        cityJa: z.string().optional(),
+        // The handwritten aside — renders where a base shows its dates.
+        note: z.string().optional(),
+        // Stop-matching keys for a combined outing ("Himeji + Kobe" claims
+        // stops in either town). Defaults to [name], so single-town trips
+        // don't set it.
+        cities: z.array(z.string()).optional(),
+        // Getting there and back from the base. Same rule as segment legs:
+        // a leg exists once it's booked, absence reads "Nothing booked yet."
+        there: z.array(leg).optional(),
+        back: z.array(leg).optional(),
+        heroImage: image().optional(),
+        heroAlt: z.string().optional(),
+        tagline: z.string().optional(),
+      })
+      .refine((d) => !d.heroImage || !!d.heroAlt, {
+        message: 'heroAlt is required when heroImage is set',
+      }),
+});
+
+export const collections = { stops, segments, daytrips };

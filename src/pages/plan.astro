@@ -2,13 +2,20 @@
 import Base from '../layouts/Base.astro';
 import RouteRail from '../components/RouteRail.astro';
 import SegmentAreas from '../components/segment/SegmentAreas.astro';
+import DayTripPanel from '../components/segment/DayTripPanel.astro';
 import StopList from '../components/StopList.astro';
 import Footer from '../components/Footer.astro';
 import { loadTrip } from '../lib/loadTrip';
 import { TRIP, TRIP_TITLE } from '../lib/trip';
 
-const { itinerary, stopContent, segmentContent, dateRange, accentFor } =
-  await loadTrip();
+const {
+  itinerary,
+  stopContent,
+  segmentContent,
+  dayTripContent,
+  dateRange,
+  accentFor,
+} = await loadTrip();
 
 // Nights across the whole trip window, not the sum of the segments — the rail
 // describes the trip we're on, which is the same length whether or not every
@@ -60,12 +67,31 @@ const tripNights = Math.round(
       }
 
       {
+        /* Day-trip panels come right after their base and — via the flattened
+           Fragment — stay direct children of <main>: the tab rules below match
+           `main > .segment`, and the first child must remain a base city for
+           the hashless-load `:first-of-type` rule. */
         itinerary.segments.map((si, i) => {
           const Notes = segmentContent.get(si.segment.id)!;
           return (
-            <SegmentAreas si={si} accent={accentFor(i)} index={i}>
-              <Notes />
-            </SegmentAreas>
+            <Fragment>
+              <SegmentAreas si={si} accent={accentFor(i)} index={i}>
+                <Notes />
+              </SegmentAreas>
+              {si.dayTrips.map((dt) => {
+                const TripNotes = dayTripContent.get(dt.trip.id)!;
+                return (
+                  <DayTripPanel
+                    dt={dt}
+                    parentCity={si.segment.data.city}
+                    accent={accentFor(i)}
+                    alt={i % 2 === 1}
+                  >
+                    <TripNotes />
+                  </DayTripPanel>
+                );
+              })}
+            </Fragment>
           );
         })
       }
