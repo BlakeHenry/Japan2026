@@ -21,29 +21,31 @@ Deployed to GitHub Pages automatically on every push to `main`.
 ## Current state
 
 **Nothing is booked.** Four cities are pencilled in, back to back, tiling
-the whole window: **Tokyo** Oct 13–16 (checkout the 17th), **Kawaguchiko**
+the whole window: **Tokyo** Oct 13–16 (checkout the 17th), **Kiso Valley**
 Oct 17–18 (checkout the 19th), **Kyoto** Oct 19–22 (checkout the 23rd), and
 **Osaka** Oct 23–26 (checkout the 27th). Day trips are pencilled in too, as
-their own collection (`src/content/daytrips/`): Ito on Kawaguchiko (a
-stop-off on the travel day down from Tokyo), Nara and Uji on Kyoto, and
-Himeji + Kobe on Osaka (one combined outing, one file). None has a photo or
-legs yet, so their panels show the same empty frames the bases do.
+their own collection (`src/content/daytrips/`): Ito on Tokyo (an onsen day
+on the Izu coast), Nara and Uji on Kyoto, and Himeji + Kobe on Osaka (one
+combined outing, one file). None has a photo or legs yet, so their panels
+show the same empty frames the bases do.
 
 No city has lodging, and no segment has `arrive` or `depart` legs, so every
-one of those blocks is showing its empty state. Kawaguchiko has no photo
+one of those blocks is showing its empty state. The Kiso Valley has no photo
 yet either — its segment has no `heroImage`, so its polaroid says "No photo
 yet" and its rail card renders photo-less. That is the honest picture, not
 a gap to paper over: **don't invent lodging, flights, transit, or
 reservations to make the page look fuller.** Everything on the site should
 be something a person actually chose.
 
-The only stops that exist are the five Jameson added (`addedBy: Jameson`) —
-three Pokémon / TCG stops in Osaka, two in Kyoto — and all five now attach
-to their city's segment, so the **"Not on the itinerary yet"** strip is
+The stops that exist are the five Jameson added (`addedBy: Jameson`) —
+three Pokémon / TCG stops in Osaka, two in Kyoto — plus five researched
+Kiso Valley ideas (the Magome→Tsumago Nakasendo walk, Tsumago-juku,
+Narai-juku, Nezame-no-toko gorge, Kozenji's rock garden). All attach to
+their city's segment, so the **"Not on the itinerary yet"** strip is
 empty and doesn't render. It's still there in the code (and must stay): a
 stop whose `city`/`date` matches no segment lands in it and warns at build
-time rather than silently vanishing. Tokyo and Kawaguchiko have no stops,
-so their Ideas blocks show their empty state.
+time rather than silently vanishing. Tokyo has no stops, so its Ideas
+block shows its empty state.
 
 The trip window (Japan, Oct 13–27 2026) lives in
 [`src/lib/trip.ts`](src/lib/trip.ts), as a code constant rather than content
@@ -172,9 +174,10 @@ in frontmatter. **There is deliberately no booked / not-booked field** on legs
 or on lodging: a leg is added once it's actually booked, so "not booked yet"
 is spelled by its absence, and a status that only ever reads "booked" is a
 label rather than information. `arrive` also fills the first Day-by-day row,
-which is the one day of a stay whose shape is already decided, and `depart`
-is what the route rail draws between this city and the next — so the leg
-joining two cities gets written on the departing side.
+which is the one day of a stay whose shape is already decided. By
+convention the leg joining two cities is written on the **departing**
+side; both halves render only in the city's "Getting here & onward" card —
+the route rail deliberately shows no travel at all.
 
 `heroImage` is optional so a city can join the itinerary before anyone has
 a picture of it: without one, the city's polaroid renders as an empty frame
@@ -294,21 +297,24 @@ which looks exactly like "no map configured".
 - `src/components/RouteRail.astro` — the route, start to finish, as a column
   of taped photo cards, and **the only way to move between cities**. Plain
   anchors, no island — each card selects its city's panel via `:target`.
-  The connector between two cards is the **departing** city's `depart` —
-  read off one side so the rail can't contradict itself, and the last city
-  has none because there's nowhere after it. "You are here" is `:target`
+  Cities and day trips only: no travel legs between cards (that lives in
+  each city's "Getting here & onward" card), and the rail ends on an inert
+  **Home** card — a `<div>`, not an anchor, because there is no `#home`
+  section and a dead hash would snap the panel back to the first city; the
+  hover rules are `a.route-card`-scoped so it stays quiet. "You are here"
+  is `:target`
   plus a `:has()` rule generated per city at build time (CSS can't hop from
   a targeted section to its rail card on its own), with one extra generated
   rule highlighting the first city on a hashless load to match the panel
   the tab CSS shows; browsers without `:has()` keep the hover treatment.
   Day trips render as `.subtrip` tags under their base's card, on a dashed
-  spine that continues the leg-line language; each gets a generated rule
-  pair — full highlight on its own tag plus a washed-out one on the parent's
-  card ("you are here, roughly"). A segment without `heroImage` renders its
-  card photo-less. Below 900px it drops the photos, legs, and spine and
-  becomes a horizontal jump bar pinned in its own grid row above the
-  scrolling panel — day trips flatten to dashed-outline pills after their
-  base, because the jump bar is the only navigation on mobile.
+  spine; each gets a generated rule pair — full highlight on its own tag
+  plus a washed-out one on the parent's card ("you are here, roughly"). A
+  segment without `heroImage` renders its card photo-less. Below 900px it
+  drops the photos and spine and becomes a horizontal jump bar pinned in
+  its own grid row above the scrolling panel — day trips flatten to
+  dashed-outline pills after their base, because the jump bar is the only
+  navigation on mobile.
 - `src/pages/map/[city].astro` — one full-screen map page per segment: rows on
   the left (booked first, then ideas), big map on the right, back link to
   `/plan/#<city>`. `getStaticPaths` passes only the trip-wide segment index,

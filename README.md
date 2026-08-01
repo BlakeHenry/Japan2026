@@ -15,7 +15,7 @@ every push to `main`.
 
 The dates are booked — **Japan, Oct 13–27 2026** (set in
 `src/lib/trip.ts`) — and four cities are pencilled in back to back: Tokyo,
-Kawaguchiko, Kyoto, Osaka, with day trips to Ito, Nara, Uji, and
+the Kiso Valley, Kyoto, Osaka, with day trips to Ito, Nara, Uji, and
 Himeji + Kobe. Nothing else is booked yet: no lodging, no legs, and most
 blocks are showing their (deliberate) empty states.
 

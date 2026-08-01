@@ -1,9 +1,8 @@
 ---
 import { Image } from 'astro:assets';
 import type { SegmentItinerary } from '../lib/itinerary';
-import { citySlug, formatStay } from '../lib/itinerary';
-import { travelEmoji } from '../lib/travel';
-import { TRIP_TITLE } from '../lib/trip';
+import { citySlug, formatShort, formatStay } from '../lib/itinerary';
+import { TRIP, TRIP_TITLE } from '../lib/trip';
 
 interface Props {
   segments: SegmentItinerary[];
@@ -15,11 +14,9 @@ interface Props {
 
 const { segments, dateRange, nights } = Astro.props;
 
-// The connector between card N and card N+1 is the *departing* city's
-// `depart`. Reading it off one side rather than reconciling Tokyo's depart
-// against Osaka's arrive means the rail can never contradict itself — and the
-// last city has no connector because there's nowhere after it to go.
-const stops = segments.map((si, i) => {
+// Cities and their day trips only — the travel between cities lives in each
+// city's "Getting here & onward" card, not on the rail.
+const stops = segments.map((si) => {
   const { city, cityJa, start, end, heroImage } = si.segment.data;
   return {
     id: citySlug(city),
@@ -30,15 +27,18 @@ const stops = segments.map((si, i) => {
     // repeating it here just crowded the card.
     stay: formatStay(start, end),
     // Sub-entries hanging off this base's card — day trips happen *from*
-    // the base, so they sit between the card and its departure leg.
+    // the base.
     trips: si.dayTrips.map((dt) => ({
       slug: dt.slug,
       name: dt.trip.data.name,
       cityJa: dt.trip.data.cityJa,
     })),
-    legs: i < segments.length - 1 ? (si.segment.data.depart ?? []) : null,
   };
 });
+
+// The rail ends where the trip does. Home is a marker, not a destination
+// with a panel, so it never joins `stops` (no anchor, no generated rules).
+const homeDate = formatShort(TRIP.end);
 
 // "You are here" without JS: :target lands on the <section>, and CSS can't
 // hop from there to the matching rail card by itself. The set of cities is
@@ -130,26 +130,21 @@ const defaultRule =
               ))}
             </ul>
           )}
-
-          {s.legs !== null && (
-            <div class="leg">
-              <span class="leg-line" aria-hidden="true" />
-              {s.legs.length > 0 ? (
-                <span class="leg-text hand">
-                  {s.legs.map((l) => (
-                    <span class="leg-row">
-                      <span aria-hidden="true">{travelEmoji(l.mode)}</span> {l.text}
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                <span class="leg-text hand leg-empty">Nothing booked yet</span>
-              )}
-            </div>
-          )}
         </li>
       ))
     }
+    <li>
+      {/* End of the line, not a destination — there's no section to jump
+          to, so no <a>: a dead anchor would snap the panel back to the
+          first city via the :first-of-type fallback in plan.astro. */}
+      <div class="route-card route-card-end">
+        <span class="tape-strip" aria-hidden="true" />
+        <span class="card-foot">
+          <span class="route-city hand">Home</span>
+          <span class="card-dates">{homeDate}</span>
+        </span>
+      </div>
+    </li>
   </ol>
 </aside>
 
@@ -184,6 +179,11 @@ const defaultRule =
     margin: 0;
     padding: 0;
     list-style: none;
+    /* Grid on purpose: the gap is the breathing room the departure legs used
+       to provide, and the mobile block's `display: flex` overrides both
+       declarations without needing a direction reset. */
+    display: grid;
+    gap: 2.75rem;
   }
 
   .route-card {
@@ -204,8 +204,10 @@ const defaultRule =
     rotate: 1.2deg;
   }
 
-  .route-card:hover,
-  .route-card:focus-visible {
+  /* Anchor-scoped so the inert Home card at the end gets no hover feedback —
+     every navigating card is an <a>, the end marker is a <div>. */
+  a.route-card:hover,
+  a.route-card:focus-visible {
     color: inherit;
     rotate: 0deg;
     box-shadow: 0 10px 22px rgb(60 50 30 / 0.28);
@@ -252,8 +254,8 @@ const defaultRule =
     margin-left: -0.25rem;
   }
 
-  .route-card:hover .route-city,
-  .route-card:focus-visible .route-city {
+  a.route-card:hover .route-city,
+  a.route-card:focus-visible .route-city {
     background: var(--highlight);
   }
 
@@ -275,9 +277,7 @@ const defaultRule =
   }
 
   /* Day trips hang off their base's card as smaller paper tags on a dashed
-     spine — the same line language as the legs, so "branches off this stop"
-     reads without a label. Indent matches .leg so spine and leg-line align
-     into one route. */
+     spine, so "branches off this stop" reads without a label. */
   .subtrips {
     margin: 0.55rem 0 0 1.9rem;
     padding: 0.15rem 0 0.15rem 0;
@@ -337,36 +337,6 @@ const defaultRule =
     margin-left: 0.4rem;
   }
 
-  /* The leg is what separates one city card from the next, so its padding is
-     the gap between cities. Generous on purpose — the travel line often runs
-     to two lines, and tight against both photos it read as crowding. */
-  .leg {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-left: 1.9rem;
-    padding: 1.25rem 0;
-  }
-
-  .leg-line {
-    flex: none;
-    align-self: stretch;
-    border-left: 2px dashed #b0a68f;
-  }
-
-  .leg-text {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    font-size: 1.1rem;
-    line-height: 1.25;
-    color: #6b655a;
-  }
-
-  .leg-empty {
-    color: #b0a68f;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .route-card,
     .subtrip-name {
@@ -375,9 +345,8 @@ const defaultRule =
   }
 
   /* Below the two-column breakpoint the rail stops being a rail: the photos
-     and the legs would be a long preamble before the first city, and the legs
-     are already in each city's own "Getting here & onward" card. What's left
-     is the part scrolling can't replace — a jump bar. */
+     would be a long preamble before the first city. What's left is the part
+     scrolling can't replace — a jump bar. */
   @media (max-width: 900px) {
     .route {
       position: static;
@@ -419,7 +388,6 @@ const defaultRule =
 
     .tape-strip,
     .card-media,
-    .leg,
     .subtrip-branch {
       display: none;
     }
