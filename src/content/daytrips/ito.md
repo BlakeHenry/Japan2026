@@ -1,9 +1,9 @@
 ---
 name: Ito
-parent: Kawaguchiko
+parent: Tokyo
 cityJa: "伊東"
-note: stop-off en route from Tokyo
+note: onsen day on the Izu coast
 ---
 
-A seaside onsen town on the Izu coast, broken out of the Tokyo → Kawaguchiko
-travel day rather than a run back out from the lake. Nothing booked yet.
+A seaside onsen town on the Izu coast, an easy run down from Tokyo and
+back for a soak and a fish lunch. Nothing booked yet.
