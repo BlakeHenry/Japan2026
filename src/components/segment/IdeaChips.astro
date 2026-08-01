@@ -36,7 +36,9 @@ const anyMaps = chips.some((c) => c.toMaps);
 
 <section class="ideas">
   <span class="tape" data-tilt="right">
-    Ideas{anyMaps && ' · tap to open Maps'}
+    <span class="tape-icon" aria-hidden="true">💡</span>Ideas{
+      anyMaps && ' · tap to open Maps'
+    }
   </span>
   {
     chips.length > 0 ? (

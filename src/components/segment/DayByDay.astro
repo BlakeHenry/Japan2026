@@ -30,7 +30,9 @@ const label = (d: Date) => ({
     city with nothing booked at all reads as a column of free days, which is
     an honest picture of where the planning stands. */}
 <section class="dbd">
-  <span class="tape">Day by day</span>
+  <span class="tape"
+    ><span class="tape-icon" aria-hidden="true">🗓️</span>Day by day</span
+  >
   <ol class="days">
     {
       days.map((day, i) => {

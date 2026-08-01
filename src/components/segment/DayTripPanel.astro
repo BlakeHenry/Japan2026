@@ -1,0 +1,86 @@
+---
+import type { DayTripItinerary } from '../../lib/itinerary';
+import { citySlug } from '../../lib/itinerary';
+import SegmentShell from './SegmentShell.astro';
+import CityPhoto from './CityPhoto.astro';
+import TravelCard from './TravelCard.astro';
+import IdeaChips from './IdeaChips.astro';
+
+interface Props {
+  dt: DayTripItinerary;
+  parentCity: string;
+  /** The parent segment's accent and tint — a day trip is part of its
+      base's leg of the trip, and keeping both keeps the pair reading as one
+      band in the no-:has() fallback stack. */
+  accent: string;
+  alt: boolean;
+}
+
+const { dt, parentCity, accent, alt } = Astro.props;
+const { name, cityJa, note, there, back, heroImage, heroAlt, tagline } =
+  dt.trip.data;
+---
+
+{/* Same frame as a base, minus what a day trip doesn't have: no StayCard
+    (we sleep at the base) and no DayByDay (which day is still unchosen).
+    Structurally absent rather than hidden — there's nothing to book. */}
+<SegmentShell
+  id={dt.slug}
+  title={name}
+  titleJa={cityJa}
+  subline={note ?? 'Day trip'}
+  accent={accent}
+  alt={alt}
+  daytrip
+>
+  {/* The badge is also the way back: one tap re-targets the parent's
+      section, so it doubles as the panel's up-navigation. */}
+  <a class="tape trip-badge" slot="badge" href={`#${citySlug(parentCity)}`}>
+    <span class="tape-icon" aria-hidden="true">🎒</span>Day trip from {parentCity}
+  </a>
+
+  <Fragment slot="stay">
+    <CityPhoto image={heroImage} alt={heroAlt} caption={tagline} alt2={alt} />
+    <TravelCard
+      arrive={there}
+      depart={back}
+      heading="Getting there & back"
+      firstLabel="There"
+      secondLabel="Back"
+    />
+  </Fragment>
+
+  <Fragment slot="plan">
+    <IdeaChips stops={dt.ideas} city={name} />
+  </Fragment>
+
+  <div class="segment-notes" slot="notes">
+    <slot />
+  </div>
+</SegmentShell>
+
+<style>
+  /* A link wearing the shared tape mark — needs the anchor defaults off so
+     it reads as a label that happens to be tappable. */
+  .trip-badge {
+    margin-bottom: 0.9rem;
+    text-decoration: none;
+  }
+
+  .trip-badge:hover,
+  .trip-badge:focus-visible {
+    color: var(--tape-ink);
+    background: var(--highlight);
+  }
+
+  .segment-notes {
+    max-width: 74rem;
+    margin: 2rem auto 0;
+    font-size: 0.92rem;
+    color: var(--ink-muted);
+  }
+
+  .segment-notes :global(p) {
+    margin: 0.4rem 0;
+  }
+</style>

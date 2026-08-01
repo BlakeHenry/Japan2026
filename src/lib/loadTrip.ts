@@ -14,14 +14,15 @@ export interface TripData {
   /** Pre-rendered markdown bodies, keyed by collection entry id */
   stopContent: Map<string, any>;
   segmentContent: Map<string, any>;
+  dayTripContent: Map<string, any>;
   /** "Oct 13 – Oct 27" — the booked trip window, not a derived span */
   dateRange: string;
   cities: string[];
   /**
-   * Every distinct glyph used by a segment's `cityJa`, for the subset brush
-   * font. Derived rather than hardcoded so the font request and the content
-   * can never disagree — the old constant had to be edited by hand and
-   * silently rendered the wrong face when someone forgot.
+   * Every distinct glyph used by a segment's or day trip's `cityJa`, for the
+   * subset brush font. Derived rather than hardcoded so the font request and
+   * the content can never disagree — the old constant had to be edited by
+   * hand and silently rendered the wrong face when someone forgot.
    */
   kanjiSubset: string;
   accentFor: (index: number) => string;
@@ -49,7 +50,8 @@ export function loadTrip(): Promise<TripData> {
 async function build(): Promise<TripData> {
   const segments = await getCollection('segments');
   const stops = await getCollection('stops');
-  const itinerary = buildItinerary(segments, stops);
+  const daytrips = await getCollection('daytrips');
+  const itinerary = buildItinerary(segments, stops, daytrips);
 
   // Markdown bodies must be rendered in a frontmatter context (render() is
   // async), so every body is rendered once here and the Content components
@@ -62,6 +64,11 @@ async function build(): Promise<TripData> {
   const segmentContent = new Map(
     await Promise.all(
       segments.map(async (s) => [s.id, (await render(s)).Content] as const)
+    )
+  );
+  const dayTripContent = new Map(
+    await Promise.all(
+      daytrips.map(async (t) => [t.id, (await render(t)).Content] as const)
     )
   );
 
@@ -79,15 +86,17 @@ async function build(): Promise<TripData> {
   }
 
   const kanjiSubset = [
-    ...new Set(
-      itinerary.segments.flatMap((si) => [...(si.segment.data.cityJa ?? '')])
-    ),
+    ...new Set([
+      ...itinerary.segments.flatMap((si) => [...(si.segment.data.cityJa ?? '')]),
+      ...daytrips.flatMap((t) => [...(t.data.cityJa ?? '')]),
+    ]),
   ].join('');
 
   return {
     itinerary,
     stopContent,
     segmentContent,
+    dayTripContent,
     // From the booked window, not from the segments: the dates are settled
     // even when no city has been picked yet.
     dateRange: formatRange(TRIP.start, TRIP.end),

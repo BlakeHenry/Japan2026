@@ -1,11 +1,11 @@
 ---
 import type { SegmentItinerary } from '../../lib/itinerary';
+import { citySlug, formatStay } from '../../lib/itinerary';
 import SegmentShell from './SegmentShell.astro';
 import CityPhoto from './CityPhoto.astro';
 import StayCard from './StayCard.astro';
 import TravelCard from './TravelCard.astro';
 import DayByDay from './DayByDay.astro';
-import DayTrips from './DayTrips.astro';
 import IdeaChips from './IdeaChips.astro';
 
 interface Props {
@@ -16,25 +16,32 @@ interface Props {
 
 const { si, accent, index } = Astro.props;
 const { segment, days, ideas } = si;
-const { city, lodging, arrive, depart, dayTrips, heroImage, heroAlt, tagline } =
+const { city, cityJa, start, end, lodging, arrive, depart, heroImage, heroAlt, tagline } =
   segment.data;
+
+// `end` is the last full day and we leave the next morning, so the day count
+// and the night count are the same number.
+const nights = days.length;
+const subline = `${formatStay(start, end)} · ${nights} ${nights === 1 ? 'night' : 'nights'}`;
+const alt = index % 2 === 1;
 ---
 
-<SegmentShell si={si} accent={accent} index={index}>
+<SegmentShell
+  id={citySlug(city)}
+  title={city}
+  titleJa={cityJa}
+  subline={subline}
+  accent={accent}
+  alt={alt}
+>
   <Fragment slot="stay">
-    <CityPhoto
-      image={heroImage}
-      alt={heroAlt}
-      caption={tagline}
-      alt2={index % 2 === 1}
-    />
+    <CityPhoto image={heroImage} alt={heroAlt} caption={tagline} alt2={alt} />
     <StayCard city={city} lodging={lodging} />
     <TravelCard arrive={arrive} depart={depart} />
   </Fragment>
 
   <Fragment slot="plan">
     <DayByDay days={days} arrive={arrive} />
-    <DayTrips trips={dayTrips} />
     <IdeaChips stops={ideas} city={city} />
   </Fragment>
 
