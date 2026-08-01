@@ -15,7 +15,8 @@ interface Props {
 const { segments, dateRange, nights } = Astro.props;
 
 // Cities and their day trips only — the travel between cities lives in each
-// city's "Getting here & onward" card, not on the rail.
+// city's Transportation card, not on the rail (the dashed route thread is
+// drawing, not data).
 const stops = segments.map((si) => {
   const { city, cityJa, start, end, heroImage } = si.segment.data;
   return {
@@ -184,6 +185,24 @@ const defaultRule =
        declarations without needing a direction reset. */
     display: grid;
     gap: 2.75rem;
+    position: relative;
+    /* Where the route thread runs, and where the subtrip groups indent to —
+       one value so the branch stubs always meet the line. */
+    --spine-x: 1.9rem;
+  }
+
+  /* The route itself: one continuous dashed thread from Tokyo down to Home,
+     drawn behind the whole column. Cards are opaque and full-width, so they
+     paint over it and only the stretches between cards (and beside the
+     day-trip tags) show. Top/bottom are clamped inside the first and last
+     cards so no loose end pokes out. */
+  .cards::before {
+    content: '';
+    position: absolute;
+    left: var(--spine-x);
+    top: 1.25rem;
+    bottom: 1.25rem;
+    border-left: 2px dashed #b0a68f;
   }
 
   .route-card {
@@ -276,13 +295,14 @@ const defaultRule =
     color: #8a8172;
   }
 
-  /* Day trips hang off their base's card as smaller paper tags on a dashed
-     spine, so "branches off this stop" reads without a label. */
+  /* Day trips hang off their base's card as smaller paper tags branching off
+     the route thread (.cards::before), so "branches off this stop" reads
+     without a label. The margin-left matches --spine-x so each tag's stub
+     starts exactly on the line. */
   .subtrips {
-    margin: 0.55rem 0 0 1.9rem;
+    margin: 0.55rem 0 0 var(--spine-x);
     padding: 0.15rem 0 0.15rem 0;
     list-style: none;
-    border-left: 2px dashed #b0a68f;
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
@@ -369,6 +389,11 @@ const defaultRule =
       padding-bottom: 0.4rem;
     }
 
+    /* No route thread in the jump bar — the pills' order carries the route. */
+    .cards::before {
+      content: none;
+    }
+
     .cards::-webkit-scrollbar {
       display: none;
     }
@@ -398,7 +423,6 @@ const defaultRule =
     .subtrips {
       margin: 0;
       padding: 0;
-      border-left: 0;
       flex-direction: row;
       align-items: stretch;
       gap: 0.5rem;

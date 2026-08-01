@@ -5,6 +5,7 @@ category: sight
 link: https://www.naraijuku.com/
 lat: 35.9653
 lng: 137.8114
+image: ../../assets/stops/narai-juku.jpg
 ---
 
 "Narai of a thousand houses" — the longest post town on the Nakasendo,

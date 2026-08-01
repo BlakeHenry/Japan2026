@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import type { Stop } from '../../lib/itinerary';
 import { googleMapsUrl, stopDomId } from '../../lib/itinerary';
 import { CATEGORIES } from '../../lib/categories';
@@ -16,12 +17,13 @@ const emojiFor = (key: string) =>
 // Same row-link priority the map pages use: coordinates beat a website,
 // because on the day "where is it" beats "what are its hours".
 const chips = stops.map((stop) => {
-  const { title, category, lat, lng, link } = stop.data;
+  const { title, category, lat, lng, link, image } = stop.data;
   const toMaps = lat != null && lng != null;
   return {
     id: stopDomId(stop.id),
     title,
     emoji: emojiFor(category),
+    image,
     href: toMaps ? googleMapsUrl(lat!, lng!) : (link ?? null),
     toMaps,
     destination: toMaps ? 'Google Maps' : 'their website',
@@ -52,7 +54,23 @@ const anyMaps = chips.some((c) => c.toMaps);
               target="_blank"
               rel="noopener"
             >
-              <span aria-hidden="true">{chip.emoji}</span>
+              {chip.image ? (
+                <span class="chip-photo">
+                  <Image
+                    src={chip.image}
+                    alt=""
+                    widths={[96, 144]}
+                    sizes="56px"
+                    format="webp"
+                    loading="lazy"
+                    class="chip-img"
+                  />
+                </span>
+              ) : (
+                <span class="chip-photo chip-glyph" aria-hidden="true">
+                  {chip.emoji}
+                </span>
+              )}
               {chip.title}
               <span class="go" aria-hidden="true">
                 ↗
@@ -61,7 +79,23 @@ const anyMaps = chips.some((c) => c.toMaps);
             </a>
           ) : (
             <span class="chip" id={chip.id}>
-              <span aria-hidden="true">{chip.emoji}</span>
+              {chip.image ? (
+                <span class="chip-photo">
+                  <Image
+                    src={chip.image}
+                    alt=""
+                    widths={[96, 144]}
+                    sizes="56px"
+                    format="webp"
+                    loading="lazy"
+                    class="chip-img"
+                  />
+                </span>
+              ) : (
+                <span class="chip-photo chip-glyph" aria-hidden="true">
+                  {chip.emoji}
+                </span>
+              )}
               {chip.title}
             </span>
           )
@@ -83,15 +117,17 @@ const anyMaps = chips.some((c) => c.toMaps);
   }
 
   /* Loose paper tags rather than buttons — the whole chip is the target, and
-     the nth-child tilts keep a wrapped block from reading as a grid. */
+     the nth-child tilts keep a wrapped block from reading as a grid. Each tag
+     leads with a small photo print (or a glyph tile for stops without a
+     photo), so the left padding is tight to let it sit like a mounted print. */
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.55rem;
     background: var(--paper-raised);
     box-shadow: 0 3px 8px rgb(60 50 30 / 0.14);
     border-radius: 4px;
-    padding: 0.45rem 0.85rem;
+    padding: 0.3rem 0.8rem 0.3rem 0.3rem;
     font-size: 0.92rem;
     color: var(--ink);
     text-decoration: none;
@@ -112,6 +148,32 @@ const anyMaps = chips.some((c) => c.toMaps);
     color: var(--ink);
     rotate: 0deg;
     translate: 0 -2px;
+  }
+
+  /* The thumbnail: a tiny white-matted print, same vocabulary as the
+     polaroid. Doubles as the glyph tile when there's no photo. */
+  .chip-photo {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    background: #fff;
+    padding: 3px;
+    box-shadow: 0 1px 3px rgb(60 50 30 / 0.18);
+    border-radius: 2px;
+  }
+
+  .chip-photo :global(.chip-img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .chip-glyph {
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+    background: color-mix(in srgb, var(--highlight) 22%, var(--paper-raised));
   }
 
   .go {

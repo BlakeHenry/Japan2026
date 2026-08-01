@@ -20,22 +20,25 @@ Deployed to GitHub Pages automatically on every push to `main`.
 
 ## Current state
 
-**Nothing is booked.** Four cities are pencilled in, back to back, tiling
+**Nothing is booked**, but the route is pencilled. Four cities, back to back, tiling
 the whole window: **Tokyo** Oct 13–16 (checkout the 17th), **Kiso Valley**
 Oct 17–18 (checkout the 19th), **Kyoto** Oct 19–22 (checkout the 23rd), and
 **Osaka** Oct 23–26 (checkout the 27th). Day trips are pencilled in too, as
 their own collection (`src/content/daytrips/`): Ito on Tokyo (an onsen day
 on the Izu coast), Nara and Uji on Kyoto, and Himeji + Kobe on Osaka (one
-combined outing, one file). None has a photo or legs yet, so their panels
-show the same empty frames the bases do.
+combined outing, one file). Each day trip carries pencilled `there`/`back`
+train legs; none has a photo yet, so their polaroids still show the empty
+frame.
 
-No city has lodging, and no segment has `arrive` or `depart` legs, so every
-one of those blocks is showing its empty state. The Kiso Valley has no photo
-yet either — its segment has no `heroImage`, so its polaroid says "No photo
-yet" and its rail card renders photo-less. That is the honest picture, not
-a gap to paper over: **don't invent lodging, flights, transit, or
-reservations to make the page look fuller.** Everything on the site should
-be something a person actually chose.
+No city has lodging, so every Staying-at card shows its empty state. Every
+segment now carries pencilled `arrive` legs (the trains between cities, and
+placeholder flights into Tokyo from Austin and Denver); Osaka also carries
+`depart` (placeholder flights home from KIX). Legs are **pencilled routes
+chosen by the humans** — researched and plausible, but not bookings — and
+they get updated when something is actually booked. The rule stands in
+adjusted form: **don't invent lodging or reservations to make the page look
+fuller, and don't add or change transit legs nobody chose.** Everything on
+the site should be something a person actually chose.
 
 The stops that exist are the five Jameson added (`addedBy: Jameson`) —
 three Pokémon / TCG stops in Osaka, two in Kyoto — plus five researched
@@ -45,7 +48,9 @@ their city's segment, so the **"Not on the itinerary yet"** strip is
 empty and doesn't render. It's still there in the code (and must stay): a
 stop whose `city`/`date` matches no segment lands in it and warns at build
 time rather than silently vanishing. Tokyo has no stops, so its Ideas
-block shows its empty state.
+block shows its empty state. Every current stop has a thumbnail in
+`src/assets/stops/`; the Kiso Valley segment has a hero photo
+(`src/assets/segments/kiso-valley.jpg`).
 
 The trip window (Japan, Oct 13–27 2026) lives in
 [`src/lib/trip.ts`](src/lib/trip.ts), as a code constant rather than content
@@ -68,6 +73,7 @@ time: "19:00"                        # optional — 24h "HH:MM", quotes required
 link: https://example.com/           # optional — official site / booking page
 lat: 35.6812                         # optional — see "Coordinates" below
 lng: 139.7671                        # optional — pairs with lat
+image: ../../assets/stops/foo.jpg    # optional — chip thumbnail, ~640px source
 ---
 
 One or two short sentences. **No markdown links in the body** (see the rules
@@ -87,10 +93,12 @@ Rules:
 - Stops whose `city`/`date` match no segment show up in the **"Not on the
   itinerary yet"** strip, and warn at build time, rather than silently
   vanishing.
-- **A stop's body text does not appear on `/plan/`.** The idea chips are
-  name-and-glyph only, by design. Bodies render on `/map/<city>/` and in the
-  unscheduled strip, both of which use `IdeaCard`. Write the body as a note
-  to your future self, not as the thing that sells the stop.
+- **A stop's body text does not appear on `/plan/`.** An idea chip is a
+  thumbnail tile (the stop's `image`, or its category glyph when there's no
+  photo) plus the name — no body text, by design. Bodies render on
+  `/map/<city>/` and in the unscheduled strip, both of which use `IdeaCard`.
+  Write the body as a note to your future self, not as the thing that sells
+  the stop.
 - **No markdown links in a stop's body.** Wherever a body renders, the whole
   row is an `<a>`, and a nested link is invalid HTML — the parser unnests it,
   which lifts the row out of its city section and silently kills that row's
@@ -131,8 +139,9 @@ coffee · **Food** = food, bar, market · **Sights** = temple, shrine, museum,
 view, walk, hike, onsen, sight, activity · **Shops** = shop. (`travel` and
 `stay` only appear under "All".)
 
-Stops have no photo of their own. Only segments carry an image (their
-`heroImage`).
+A stop may carry an optional `image` — a small thumbnail (~640px source in
+`src/assets/stops/`) rendered only on its idea chip. Segments still own the
+hero photo (`heroImage`).
 
 ## Trip segments (one file per contiguous stay)
 
@@ -171,13 +180,16 @@ Free-form notes about this leg, shown at the end of its section.
 
 `mode` picks the glyph; `src/lib/travel.ts` owns the emoji so none ever lands
 in frontmatter. **There is deliberately no booked / not-booked field** on legs
-or on lodging: a leg is added once it's actually booked, so "not booked yet"
-is spelled by its absence, and a status that only ever reads "booked" is a
-label rather than information. `arrive` also fills the first Day-by-day row,
-which is the one day of a stay whose shape is already decided. By
-convention the leg joining two cities is written on the **departing**
-side; both halves render only in the city's "Getting here & onward" card —
-the route rail deliberately shows no travel at all.
+or on lodging: legs are the pencilled route (updated in place when something
+is actually booked), and lodging is added only once it's real. Legs are
+authored on the **arriving** side — each city's `arrive` says how we get to
+it — and only the last city carries `depart` (the flight home); everything
+else's onward travel is simply the next city's arrival. They render in the
+city's **Transportation** card: a single unlabelled list of the arrival legs,
+plus a "Heading home" block only when `depart` legs exist. `arrive` also
+fills the first Day-by-day row, which is the one day of a stay whose shape is
+already decided. The route rail deliberately shows no travel text at all —
+its continuous dashed thread is drawing, not data.
 
 `heroImage` is optional so a city can join the itinerary before anyone has
 a picture of it: without one, the city's polaroid renders as an empty frame
@@ -298,7 +310,7 @@ which looks exactly like "no map configured".
   of taped photo cards, and **the only way to move between cities**. Plain
   anchors, no island — each card selects its city's panel via `:target`.
   Cities and day trips only: no travel legs between cards (that lives in
-  each city's "Getting here & onward" card), and the rail ends on an inert
+  each city's Transportation card), and the rail ends on an inert
   **Home** card — a `<div>`, not an anchor, because there is no `#home`
   section and a dead hash would snap the panel back to the first city; the
   hover rules are `a.route-card`-scoped so it stays quiet. "You are here"
@@ -307,8 +319,12 @@ which looks exactly like "no map configured".
   a targeted section to its rail card on its own), with one extra generated
   rule highlighting the first city on a hashless load to match the panel
   the tab CSS shows; browsers without `:has()` keep the hover treatment.
-  Day trips render as `.subtrip` tags under their base's card, on a dashed
-  spine; each gets a generated rule pair — full highlight on its own tag
+  One continuous dashed route thread (`.cards::before`, at `--spine-x`) runs
+  behind the whole column from the Tokyo card down through Home; cards are
+  opaque and paint over it, so only the stretches between them show. Day
+  trips render as `.subtrip` tags under their base's card, their dashed
+  branch stubs meeting that thread; each gets a generated rule pair — full
+  highlight on its own tag
   plus a washed-out one on the parent's card ("you are here, roughly"). A
   segment without `heroImage` renders its card photo-less. Below 900px it
   drops the photos and spine and becomes a horizontal jump bar pinned in
@@ -376,15 +392,18 @@ which looks exactly like "no map configured".
   back", and Ideas. No `StayCard`, no `DayByDay` — structurally absent.
 - `CityPhoto.astro` — the taped polaroid, tilt alternating with the segment.
 - `StayCard.astro` — "Staying at". **Always renders**, booked or not.
-- `TravelCard.astro` — "Getting here & onward", Arrive and Depart. Always
-  renders; each half says "Nothing booked yet" on its own. Heading and the
-  two labels are props with those defaults — `DayTripPanel` passes "Getting
-  there & back" with There/Back.
+- `TravelCard.astro` — "Transportation". Always renders. For a base it's one
+  unlabelled list of the `arrive` legs (empty state: "Nothing booked yet"),
+  plus a "Heading home" block only when `depart` legs exist (Osaka's flight
+  out). Passing `firstLabel` switches back to the labelled two-half layout —
+  `DayTripPanel` passes "Getting there & back" with There/Back.
 - `DayByDay.astro` — every day of the stay, booked or not. Free days say
   "Free"; the first day also carries the `arrive` legs.
-- `IdeaChips.astro` — the undated stops as paper tags. Name and glyph only;
-  no body text (see the stop rules above). Day-trip panels reuse it with the
-  trip's claimed stops.
+- `IdeaChips.astro` — the undated stops as paper tags, each led by a 56px
+  white-matted thumbnail (the stop's `image`, or its category glyph on a
+  tinted tile when there's no photo). Name and tile only; no body text (see
+  the stop rules above). Day-trip panels reuse it with the trip's claimed
+  stops.
 
 ### Shared components
 
@@ -407,7 +426,8 @@ which looks exactly like "no map configured".
 - `src/styles/map-paper.css` — all the parchment styling (deckled mat, sepia
   tiles, aged wash, compass, paper pins). Two sizes via
   `.mapslot[data-variant]`: default and `page`.
-- `src/assets/segments/` — city hero photos (stops have no images)
+- `src/assets/segments/` — city hero photos
+- `src/assets/stops/` — stop chip thumbnails (~640px sources)
 - `.github/workflows/deploy.yml` — GitHub Pages deployment
 
 ## Type and colour

@@ -9,8 +9,11 @@ interface Leg {
 interface Props {
   arrive?: Leg[];
   depart?: Leg[];
-  /** A base reads arrival/departure; a day trip passes "Getting there &
-      back" with There/Back labels and its out/return legs. */
+  /** A base renders one bare list of how we get there ("Transportation"),
+      plus a labelled "Heading home" block only when `depart` legs exist
+      (the last city's flight out). A day trip passes "Getting there & back"
+      with There/Back labels — `firstLabel` being set is what switches the
+      card back to the two-half layout, so pass both labels or neither. */
   heading?: string;
   firstLabel?: string;
   secondLabel?: string;
@@ -19,22 +22,24 @@ interface Props {
 const {
   arrive = [],
   depart = [],
-  heading = 'Getting here & onward',
-  firstLabel = 'Arrive',
-  secondLabel = 'Depart',
+  heading = 'Transportation',
+  firstLabel,
+  secondLabel = 'Heading home',
 } = Astro.props;
+
+const showSecond = firstLabel !== undefined || depart.length > 0;
 ---
 
-{/* A leg exists only once it's booked, so an empty section means "not booked
-    yet" and says so — there's no third state to draw. The card itself always
-    renders: every city is one we arrive in and leave, and hiding the whole
-    thing would make an unbooked trip look like a settled one. */}
+{/* Legs are the pencilled route — an empty section means "nothing planned or
+    booked yet" and says so; there's no third state to draw. The card itself
+    always renders: every city is one we arrive in and leave, and hiding the
+    whole thing would make an unplanned trip look like a settled one. */}
 <div class="card">
   <span class="tape" data-tilt="right"
     ><span class="tape-icon" aria-hidden="true">🚄</span>{heading}</span
   >
 
-  <p class="leg-head">{firstLabel}</p>
+  {firstLabel && <p class="leg-head">{firstLabel}</p>}
   {
     arrive.length > 0 ? (
       <ul class="legs">
@@ -52,21 +57,25 @@ const {
     )
   }
 
-  <p class="leg-head">{secondLabel}</p>
   {
-    depart.length > 0 ? (
-      <ul class="legs">
-        {depart.map((l) => (
-          <li>
-            <span class="mode" aria-hidden="true">
-              {travelEmoji(l.mode)}
-            </span>
-            <span>{l.text}</span>
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <p class="empty hand">Nothing booked yet.</p>
+    showSecond && (
+      <>
+        <p class="leg-head">{secondLabel}</p>
+        {depart.length > 0 ? (
+          <ul class="legs">
+            {depart.map((l) => (
+              <li>
+                <span class="mode" aria-hidden="true">
+                  {travelEmoji(l.mode)}
+                </span>
+                <span>{l.text}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="empty hand">Nothing booked yet.</p>
+        )}
+      </>
     )
   }
 </div>
@@ -86,6 +95,13 @@ const {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #b0a68f;
+  }
+
+  /* With no first label the list (or empty note) directly follows the tape,
+     which used to get its breathing room from .leg-head's margin. */
+  .tape + .legs,
+  .tape + .empty {
+    margin-top: 0.85rem;
   }
 
   .legs {

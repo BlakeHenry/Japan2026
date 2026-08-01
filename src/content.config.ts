@@ -9,7 +9,7 @@ import { TRAVEL_MODE_KEYS } from './lib/travel';
 // somewhere — don't add fields the UI doesn't show.
 const stops = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/stops' }),
-  schema: () =>
+  schema: ({ image }) =>
     z.object({
       title: z.string(),
       city: z.string(),
@@ -32,6 +32,10 @@ const stops = defineCollection({
       // preview card in the panel, and a row that opens Google Maps.
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
+      // Optional chip thumbnail (src/assets/stops/). Decorative — the chip's
+      // title is the label, so there's no alt field; a stop without one falls
+      // back to its category glyph in the same tile.
+      image: image().optional(),
     }),
 });
 
@@ -39,8 +43,9 @@ const stops = defineCollection({
 // src/content/segments/. Segments must not overlap; `end` is the last full
 // day in that city, and `city` must exactly match the stops' `city` values.
 // One leg of getting somewhere. `mode` picks the glyph (src/lib/travel.ts);
-// `text` is the whole human-readable line. No status field on purpose — a leg
-// only exists once it's booked, so its absence is what "not booked yet" looks
+// `text` is the whole human-readable line. No status field on purpose — legs
+// are the pencilled route (added once a route is chosen, updated when it's
+// actually booked), and an empty list is what "nothing planned yet" looks
 // like.
 const leg = z.object({
   mode: z.enum(TRAVEL_MODE_KEYS),
@@ -66,8 +71,10 @@ const segments = defineCollection({
             link: z.string().url().optional(),
           })
           .optional(),
-        // How we get here and how we leave. Both optional and both filled in
-        // as things are booked.
+        // Transportation. Authored on the ARRIVING side: each city's `arrive`
+        // says how we get to it. Only the last city carries `depart` (the
+        // flight home) — everything else's onward travel is the next city's
+        // arrival.
         arrive: z.array(leg).optional(),
         depart: z.array(leg).optional(),
         // Optional so a city can join the itinerary before anyone has a
@@ -112,7 +119,7 @@ const daytrips = defineCollection({
         // don't set it.
         cities: z.array(z.string()).optional(),
         // Getting there and back from the base. Same rule as segment legs:
-        // a leg exists once it's booked, absence reads "Nothing booked yet."
+        // pencilled routes; an empty half reads "Nothing booked yet."
         there: z.array(leg).optional(),
         back: z.array(leg).optional(),
         heroImage: image().optional(),

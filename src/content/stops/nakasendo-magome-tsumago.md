@@ -5,6 +5,7 @@ category: hike
 link: https://en.visitkiso.com/nakasendo/magome-tsumago
 lat: 35.5268
 lng: 137.5681
+image: ../../assets/stops/nakasendo-magome-tsumago.jpg
 ---
 
 The signature walk — ~8 km, ~3 hours of Edo-era post road over Magome
