@@ -1,6 +1,6 @@
 ---
 import type { SegmentItinerary } from '../../lib/itinerary';
-import { citySlug, formatStay } from '../../lib/itinerary';
+import { formatStay } from '../../lib/itinerary';
 import SegmentShell from './SegmentShell.astro';
 import CityPhoto from './CityPhoto.astro';
 import StayCard from './StayCard.astro';
@@ -27,7 +27,7 @@ const alt = index % 2 === 1;
 ---
 
 <SegmentShell
-  id={citySlug(city)}
+  id={si.slug}
   title={city}
   titleJa={cityJa}
   subline={subline}

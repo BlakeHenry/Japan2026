@@ -1,0 +1,104 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import TripOverview from '../components/TripOverview.astro';
+import { buildTripCalendar } from '../lib/itinerary';
+import { loadTrip } from '../lib/loadTrip';
+import { TRIP, TRIP_TITLE } from '../lib/trip';
+
+const { itinerary, dateRange, accentFor } = await loadTrip();
+
+const tripNights = Math.round(
+  (TRIP.end.getTime() - TRIP.start.getTime()) / 86_400_000
+);
+
+// The whole window flattened to one day-per-column table. Gated on segments
+// existing — with none there's nothing to chart, and the empty state below
+// owns the page instead.
+const calendar =
+  itinerary.segments.length > 0
+    ? buildTripCalendar(itinerary, TRIP.start, TRIP.end)
+    : null;
+---
+
+{/* The trip as a spreadsheet — every day in one screen, labelled rows, no
+    rail beside it: this page exists to spend the full viewport width on the
+    columns. The paper stays; the scrapbook dressing (tape, tilt, the big
+    display title) deliberately doesn't — this is the functional view, and
+    the polaroids live one click away on /plan/. */}
+<Base
+  title={`The whole trip · ${TRIP_TITLE}`}
+  description="Every day of the trip on one screen."
+>
+  <div class="ov-page">
+    <p class="ov-back">
+      <a href="/plan/">← Back to the plan</a>
+    </p>
+
+    <header class="ov-head">
+      <h1>The whole trip</h1>
+      <p class="ov-dates">
+        {dateRange} · {tripNights} nights
+      </p>
+    </header>
+
+    {
+      calendar ? (
+        <TripOverview calendar={calendar} accentFor={accentFor} />
+      ) : (
+        <p class="ov-empty hand">
+          Two weeks in {TRIP.name}, and the calendar is still a blank page.
+        </p>
+      )
+    }
+
+    <Footer />
+  </div>
+</Base>
+
+<style>
+  .ov-page {
+    max-width: 110rem;
+    margin-inline: auto;
+    padding: 0.9rem 1.5rem 0;
+  }
+
+  .ov-back {
+    margin: 0 0 1.2rem;
+  }
+
+  .ov-back a {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .ov-head {
+    margin-bottom: 1.1rem;
+  }
+
+  .ov-head h1 {
+    margin: 0;
+    font-size: 1.9rem;
+    line-height: 1.1;
+  }
+
+  .ov-dates {
+    margin: 0.15rem 0 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+
+  .ov-empty {
+    margin: 3rem 0;
+    font-size: 1.35rem;
+    color: var(--ink-muted);
+    text-align: center;
+  }
+
+  @media (max-width: 900px) {
+    .ov-page {
+      padding-inline: 1rem;
+    }
+  }
+</style>

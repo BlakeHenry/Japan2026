@@ -5,7 +5,7 @@ import FilterBar from '../../components/FilterBar.astro';
 import MapPanel from '../../components/map/MapPanel.astro';
 import { loadTrip } from '../../lib/loadTrip';
 import { TRIP_TITLE } from '../../lib/trip';
-import { citySlug, formatRange, mapPoints } from '../../lib/itinerary';
+import { formatRange, mapPoints } from '../../lib/itinerary';
 import { filterGroupsFor } from '../../lib/categories';
 
 export async function getStaticPaths() {
@@ -16,7 +16,9 @@ export async function getStaticPaths() {
   // segment back up, and it is also what accentFor() keys off — so this city's
   // accent matches the same city's section on the index page.
   return itinerary.segments.map((si, i) => ({
-    params: { city: citySlug(si.segment.data.city) },
+    // si.slug, not citySlug(city): a city visited twice has two stays, and
+    // two routes with the same param would collide at build time.
+    params: { city: si.slug },
     props: { index: i },
   }));
 }
@@ -27,7 +29,7 @@ const si = itinerary.segments[index];
 const { segment, ideas, booked, counts } = si;
 const { city, start, end } = segment.data;
 
-const segmentId = citySlug(city);
+const segmentId = si.slug;
 
 // Booked first — they're the fixed anchors the loose ideas arrange themselves
 // around. `si.all` still drives the pins; only the reading order differs.
