@@ -1,0 +1,37 @@
+# Supply-chain hardening. pnpm 11 already blocks dependency lifecycle
+# scripts by default; the settings here tighten the rest.
+
+# Don't resolve any package version until it has been on the registry for
+# 7 days (in minutes). Compromised releases are typically yanked within
+# hours; this waits out the whole detection window. Applies to resolution
+# only — installs from the committed lockfile are unaffected.
+minimumReleaseAge: 10080
+
+# Transitive deps must come from a registry — never git repos or raw
+# tarball URLs.
+blockExoticSubdeps: true
+
+# esbuild and sharp both work without their install scripts: their native
+# binaries arrive as optionalDependencies (@esbuild/*, @img/*), and the
+# scripts are only a fallback that compiles from source. Keep them blocked;
+# flip to true only if an install ever ends up binary-less.
+allowBuilds:
+  esbuild: false
+  sharp: false
+
+# @astrojs/react@6.0.2 hard-pins its own "vite": "^8.0.13" dependency,
+# separate from astro core's "vite": "^6.4.1" — so @vitejs/plugin-react
+# ends up wired to the rolldown-powered vite@8 line even though astro's
+# actual dev server runs classic (rollup) vite@6. When @vitejs/plugin-react
+# detects the rolldown vite it loads a native rolldown plugin (rather than
+# its JS fallback) and injects it into astro's classic vite pipeline, which
+# throws "Missing field `moduleType`" on every dev request (build is
+# unaffected — that plugin only runs in `astro dev`). Confirmed upstream:
+# https://github.com/withastro/astro/issues/16229 ("Astro does not
+# currently support Vite 8" — maintainer). @vitejs/plugin-react's own peer
+# range accepts vite ^6.0.0 too, so redirecting @astrojs/react's copy to
+# astro's own 6.4.3 removes the split and the plugin falls back to its
+# working JS-based refresh transform. Remove once @astrojs/react drops the
+# vite@8 dependency or astro core moves to vite@8.
+overrides:
+  'vite@^8.0.13': 6.4.3

@@ -59,7 +59,7 @@ whatever's useful.
 
 If a stop's `date` or `city` doesn't match any trip segment (see below),
 it still shows up — in a "Not on the itinerary yet" strip at the bottom of
-the page — and `npm run build` will warn about it. Nothing silently
+the page — and `pnpm build` will warn about it. Nothing silently
 disappears.
 
 ## Trip segments (the legs of the trip)
@@ -98,22 +98,25 @@ each segment file has a comment noting the source/license.
 ## Running it locally
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
+
+The repo pins pnpm via the `packageManager` field, so `corepack enable`
+is all the setup a fresh machine needs (or install pnpm yourself).
 
 Before pushing content changes, run a production build once to make sure
 nothing broke (this also validates all the frontmatter above):
 
 ```bash
-npm run build
+pnpm build
 ```
 
 ## Contributing
 
 1. Branch off `main`.
 2. Add/edit stop or segment files as above.
-3. Run `npm run build` to catch schema errors and typos.
+3. Run `pnpm build` to catch schema errors and typos.
 4. Open a PR into `main`.
 
 No build step is required to review content changes — the frontmatter is
