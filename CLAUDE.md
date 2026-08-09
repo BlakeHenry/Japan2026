@@ -5,21 +5,22 @@ A static Astro site in three layers:
 - **`/`** — the cover. One viewport, no scroll: the dates, the title, a taped
   photo, and a single washi-tape button into the plan. It loads no map and
   nothing below the fold, because it is a cover and not a page.
-- **`/plan/`** — the itinerary. A route rail on the left, and **one section at
-  a time** beside it: the page never scrolls between sections — the rail is
-  the only way to move, and the open panel scrolls by itself. A city section
-  is a header, then the stay on the left (photo, where we're sleeping, how we
-  get there) and what we do with it on the right (day by day, then ideas as
-  tappable chips). Day trips are **sub-locations**: they hang off their base's
-  rail card as smaller tags and open their own panel — same frame as a base,
-  minus lodging and Day by day.
-- **`/overview/`** — the whole trip as a spreadsheet: one column per calendar
-  day of the trip window, labelled rows (City / Sleeping / Travel / Day
-  trips), the full viewport wide. Deliberately outside /plan/'s
-  rail-and-tabs frame — the columns get the width the rail would eat — and
-  deliberately without the scrapbook dressing: this is the functional view.
-  The rail's first card links here; its city bands and day-trip pills link
-  back into /plan/'s panels.
+- **`/overview/`** — the plan, and the whole of it. The top of the page is the
+  trip as a spreadsheet: one column per calendar day of the trip window,
+  labelled rows (City / Sleeping / Travel / Day trips), the full viewport
+  wide. That grid is also **the only navigation** — every city band and
+  day-trip pill is a same-page hash that opens that place's panel below it,
+  **one at a time**. A city panel is a header, then the stay on the left
+  (photo, where we're sleeping, how we get there) and what we do with it on
+  the right (day by day, then ideas as tappable chips). Day trips are
+  **sub-locations**: they hang off their base's columns as dashed pills and
+  open their own panel — same frame as a base, minus lodging and Day by day.
+  On desktop the page is locked to the viewport so the grid never moves and
+  the panel scrolls in its own row; below 900px the lock comes off and the
+  document scrolls, because a grid that eats a third of a phone screen would
+  leave the panel a letterbox. The whole page is one flat register — paper,
+  hairlines, accent tints — and deliberately not the cover's scrapbook: this
+  is the functional view, and two registers on one page read as two pages.
 - **`/map/<city>/`** — one full-screen map page per city: rows on the left,
   big map on the right, the way you'd browse a saved list in Google Maps.
 
@@ -38,8 +39,8 @@ city" below).
 
 **Oct 17–18 is an open gap, not a segment.** Kiso Valley was pencilled
 there and got pulled off the itinerary — no replacement is decided, so
-those two days simply have no segment, and the overview grid and rail both
-show them as "In transit" until something is chosen. `03-kyoto.md` lost the
+those two days simply have no segment, and the overview grid
+shows them as "In transit" until something is chosen. `03-kyoto.md` lost the
 `arrive` legs that used to route through it (Nagiso, on the old Kiso Valley
 line) for the same reason: the actual path from Tokyo to Kyoto is unchosen
 again, so its Transportation card reads "Nothing booked yet." **Kawaguchiko
@@ -133,7 +134,7 @@ Rules:
 - Stops whose `city`/`date` match no segment show up in the **"Not on the
   itinerary yet"** strip, and warn at build time, rather than silently
   vanishing.
-- **A stop's body text does not appear on `/plan/`.** An idea chip is a
+- **A stop's body text does not appear on its city panel.** An idea chip is a
   thumbnail tile (the stop's `image`, or its category glyph when there's no
   photo) plus the name — no body text, by design. Bodies render on
   `/map/<city>/` and in the unscheduled strip, both of which use `IdeaCard`.
@@ -186,7 +187,7 @@ hero photo (`heroImage`).
 ## Trip segments (one file per contiguous stay)
 
 Each leg is one markdown file in `src/content/segments/` (e.g.
-`01-tokyo.md`). Segments drive `/plan/`: one city section per segment, and
+`01-tokyo.md`). Segments drive `/overview/`: one city panel per segment, and
 stops attach by `city` (ideas) or `date` (booked).
 
 ```markdown
@@ -243,8 +244,7 @@ else's onward travel is simply the next city's arrival. They render in the
 city's **Transportation** card: a single unlabelled list of the arrival legs,
 plus a "Heading home" block only when `depart` legs exist. `arrive` also
 fills the first Day-by-day row, which is the one day of a stay whose shape is
-already decided. The route rail deliberately shows no travel text at all —
-its continuous dashed thread is drawing, not data.
+already decided.
 
 The overview fields (`service` / `hours` / `departs` / `arrives` / `leaves` /
 `lands`) exist for the overview grid and nothing else. Defaults when omitted:
@@ -260,8 +260,7 @@ but nothing reads them — day trips have no date to hang a column on.
 
 `heroImage` is optional so a city can join the itinerary before anyone has
 a picture of it: without one, the city's polaroid renders as an empty frame
-saying "No photo yet" and its rail card goes photo-less (the shape the
-mobile jump bar always uses). `heroAlt` is required whenever `heroImage` is
+saying "No photo yet". `heroAlt` is required whenever `heroImage` is
 set — the schema enforces it.
 
 ### Coming back to a city
@@ -272,7 +271,7 @@ same `city`**, and two rules make it work:
 
 - **Slugs get numbered.** The first stay keeps `citySlug(city)`; later ones
   get `-2`, `-3`. That slug lives on `SegmentItinerary.slug`, which is what
-  the rail, the section id, the overview's bands, and the `/map/<city>/`
+  the section id, the overview's bands, and the `/map/<city>/`
   route param all read — **never call `citySlug(segment.data.city)` for a
   stay**, or two stays collide on one anchor and Astro fails on duplicate
   map routes.
@@ -325,7 +324,7 @@ Rules:
 - Deliberately no dates and no lodging. When a day trip grows an actual
   booking, that's a dated stop, not a day-trip field.
 - Every section slug (`citySlug` of segment cities and day-trip names)
-  shares one `:target` namespace on `/plan/` — a collision fails the build.
+  shares one `:target` namespace on `/overview/` — a collision fails the build.
 - Day-trip stops appear on **no `/map/` page** (those are per-segment).
   Accepted for now; fold them into the parent's map if that ever matters.
 
@@ -376,10 +375,11 @@ The build works fine without either variable; the map falls back to the
 paper pin scatter.
 
 **Only `/map/<city>/` may load a map**, and only one per page. Neither `/`
-nor `/plan/` instantiates Google at all — putting a live map back on `/plan/`
-would cost a load per city on every single visit, which is what blows the
-daily cap. Verify with `grep -c MapSlot dist/index.html dist/plan/index.html`
-(both must be 0) or a devtools network filter on `maps.googleapis.com`.
+nor `/overview/` instantiates Google at all — putting a live map back on
+`/overview/` would cost a load per city on every single visit, which is what
+blows the daily cap. Verify with
+`grep -c MapSlot dist/index.html dist/overview/index.html` (both must be 0)
+or a devtools network filter on `maps.googleapis.com`.
 
 In CI the values live on the **github-pages environment** (not repo scope),
 as secret `PUBLIC_GOOGLE_MAPS_API_KEY` and variable `PUBLIC_GOOGLE_MAPS_ID`.
@@ -394,70 +394,57 @@ which looks exactly like "no map configured".
 
 - `src/pages/index.astro` — the cover. `Hero` and nothing else: no footer, no
   segments, no scroll.
-- `src/pages/plan.astro` — the itinerary: a `RouteRail` beside one
-  `SegmentAreas` per segment (each followed by its `DayTripPanel`s — the
-  Fragment flattens, so every panel is a **direct child of `<main>`**, which
-  the tab CSS requires, and the first child must stay a base city for the
-  hashless-load `:first-of-type` rule), then the "Not on the itinerary yet"
-  strip and `Footer` (inside `<main>` — the page doesn't scroll, so outside
-  the layout it would be unreachable). Its `h1` is `sr-only` — the visible
-  headings are the city names. Astro emits it as `plan/index.html`, so
-  **always link it with a trailing slash** (`/plan/`) or GitHub Pages
+- `src/pages/overview.astro` — the plan. `.ov-layout` holds two things: a
+  `.ov-top` with the one-line header (back link to the cover, `h1`, dates)
+  and `TripOverview`, then a `<main>` of one `SegmentAreas` per segment
+  (each followed by its `DayTripPanel`s — the Fragment flattens, so every
+  panel is a **direct child of `<main>`**, which the tab CSS requires),
+  the "Not on the itinerary yet" strip, and `Footer` (inside `<main>` —
+  on desktop the page doesn't scroll, so outside it the footer would be
+  unreachable). Capped at 110rem because spending the full width on the day
+  columns is the point of the grid. Astro emits it as `overview/index.html`,
+  so **always link it with a trailing slash** (`/overview/`) or GitHub Pages
   answers with a 301 first.
-  **The tab mechanism lives here**, in an `is:global` style block: the
-  layout is locked to `100svh`, `<main>` is the scroll container (the map
-  page's `min-height: 0` + `overflow-y: auto` pattern), `.segment`s are
-  `display: none` except the `:target` one, and a `:not(:has(...))` rule
-  shows the first city on a hashless load. `:target` is scoped to
-  `.segment` so targeting `#unscheduled` or a stop id falls back to the
-  first city instead of hiding everything. Because it's all `:target`, it
-  works with JS off, deep links (`/plan/#kyoto`) and the map pages' back
-  links open the right city, and Back/Forward walk through cities. The
-  whole block is gated behind `@supports selector(main:has(...))` —
-  browsers without `:has()` get the old design instead: every city stacked
-  on one long scrolling page. Don't ungate it; without the gate those
-  browsers would open to a blank page.
-- `src/pages/overview.astro` — the whole-trip page: back link, plain header
-  (the map pages' register — no tape, no display-size title), then
-  `TripOverview` and `Footer`. Capped at 110rem because spending the full
-  viewport width on the day columns is the reason it's a separate page.
-- `src/components/RouteRail.astro` — the route, start to finish, as a column
-  of taped photo cards, and **the only way to move between cities**. Plain
-  anchors, no island — each card selects its city's panel via `:target`.
-  It opens on a photo-less **"The whole trip"** card wearing `formatWindow`'s
-  "Oct 12–27" — a page link to `/overview/`, not a hash, since the grid
-  lives on its own page. Then cities and day trips only: no travel legs
-  between cards (that lives in
-  each city's Transportation card), and the rail ends on an inert
-  **Home** card — a `<div>`, not an anchor, because there is no `#home`
-  section and a dead hash would snap the panel back to the first city; the
-  hover rules are `a.route-card`-scoped so it stays quiet. "You are here"
-  is `:target`
-  plus a `:has()` rule generated per city at build time (CSS can't hop from
-  a targeted section to its rail card on its own), with one extra generated
-  rule highlighting the first city's card on a hashless load to match the
-  panel the tab CSS shows; browsers without `:has()` keep the hover
-  treatment.
-  One continuous dashed route thread (`.cards::before`, at `--spine-x`) runs
-  behind the whole column from the Tokyo card down through Home; cards are
-  opaque and paint over it, so only the stretches between them show. Day
-  trips render as `.subtrip` tags under their base's card, their dashed
-  branch stubs meeting that thread; each gets a generated rule pair — full
-  highlight on its own tag
-  plus a washed-out one on the parent's card ("you are here, roughly"). A
-  segment without `heroImage` renders its card photo-less. Below 900px it
-  drops the photos and spine and becomes a horizontal jump bar pinned in
-  its own grid row above the scrolling panel — day trips flatten to
-  dashed-outline pills after their base, because the jump bar is the only
-  navigation on mobile.
+  **The tab mechanism lives here**, in an `is:global` style block: `.segment`s
+  are `display: none` except the `:target` one, and a `:not(:has(...))` rule
+  shows the first city on a hashless load. `:target` is scoped to `.segment`
+  so targeting `#unscheduled` or a stop id falls back to the first city
+  instead of hiding everything. Above 900px the same block locks `.ov-layout`
+  to `100svh` and makes `<main>` the scroll container (the map page's
+  `min-height: 0` + `overflow-y: auto` pattern), so the grid holds row one;
+  below that only the display-swap applies and the document scrolls. The row
+  is `minmax(18rem, 1fr)`, not `minmax(0, 1fr)`: on a very short window the
+  wrapper overflows the viewport and the root scrolls a little rather than
+  crushing the panel to nothing.
+  Two ordering traps. `.segment:first-of-type` means the first `<section>`
+  child of `<main>`, so **the grid lives in `.ov-top`, outside `<main>`** —
+  a sectioning element above the panels would silently steal that rule and
+  the page would open blank. And the first panel must stay a base city.
+  Because it's all `:target`, it works with JS off, deep links
+  (`/overview/#kyoto`) and the map pages' back links open the right city,
+  and Back/Forward walk through cities. The whole block is gated behind
+  `@supports selector(main:has(...))` — browsers without `:has()` get the
+  older shape instead: the grid, then every city stacked on one long
+  scrolling page. Don't ungate it; without the gate those browsers would
+  open to a blank panel.
+  **The "you are here" rules are generated here too**, in frontmatter and
+  emitted into `<head>` as an `is:inline` style: CSS can't walk from a
+  targeted panel back up to the band that opened it, so there's one
+  `.ov-layout:has(#slug:target) .band[href="#slug"]` rule per city, a pair
+  per day trip (its own pill lit, its base's band washed — "you are here,
+  roughly"), and one `:not(:has(.segment:target))` rule lighting the first
+  city's band to match the panel the tab CSS shows. Interpolating slugs raw
+  is safe because `citySlug` strips punctuation and `buildItinerary` throws
+  on a duplicate. No `@supports` gate needed — browsers without `:has()`
+  simply drop the selectors.
 - `src/pages/map/[city].astro` — one full-screen map page per segment: rows on
   the left (booked first, then ideas), big map on the right, back link to
-  `/plan/#<city>`. `getStaticPaths` passes only the trip-wide segment index,
-  which is also what `accentFor()` keys off so the accent matches `/plan/`.
-  **Nothing currently links here** — the plan page's map preview card was
-  dropped in the redesign. The pages still build and are the only place a
+  `/overview/#<city>`. `getStaticPaths` passes only the trip-wide segment
+  index, which is also what `accentFor()` keys off so the accent matches the
+  panel. **Nothing currently links here** — the map preview card was dropped
+  in an earlier redesign. The pages still build and are the only place a
   stop's body text and the category filters appear. The back link to
-  `/plan/#<city>` doubles as tab selection: it opens that city's panel.
+  `/overview/#<city>` doubles as tab selection: it opens that city's panel.
 - `src/pages/404.astro` — GitHub Pages serves this for unmatched paths
 
 ### Lib
@@ -482,7 +469,7 @@ which looks exactly like "no map configured".
   `formatStay` renders a stay as arrival→checkout ("Oct 13–17"); `formatRange`
   renders days-in-city ("Oct 13 – Oct 16") and is what the map pages use;
   `formatWindow` is the inclusive compact window ("Oct 12–27", no checkout
-  +1) for the rail's overview card; `formatHours` is the grid's "~16h" /
+  +1) for the page header; `formatHours` is the grid's "~16h" /
   "~30m" shorthand. `buildTripCalendar(itinerary, start, end)` flattens the
   itinerary onto the trip window for the overview grid: one `TripDay` per
   calendar day (city membership, that day's slice of each leg, and the
@@ -511,25 +498,34 @@ which looks exactly like "no map configured".
 ### The city section (`src/components/segment/`)
 
 - `SegmentShell.astro` — the frame, shared by base and day-trip panels:
-  header (highlighter chip + `titleJa` + subline) and a two-column grid with
-  `stay` and `plan` slots, plus an optional `badge` slot above the header
-  (the day-trip marker). A day-trip panel passes its **parent's** `alt` so
-  the pair reads as one tinted band in the no-`:has()` fallback. Plain flow
-  — no sticky, no scroll-driven animation. Owns the alternating `--seg-bg` —
-  a gentle tint now that one city shows at a time, but in the no-`:has()`
+  header (title + `titleJa` + subline) and a two-column grid with `stay` and
+  `plan` slots, plus an optional `badge` slot above the header (the day-trip
+  marker). The header **is the grid's band** at panel scale — the same
+  `color-mix(… 20% …)` tint over a 3px accent left key — so the band you
+  clicked and the panel that answers read as one object; that echo is also
+  why the title wears no highlighter chip. `.segment-inner` is capped at
+  74rem but **left-aligned, not centred**, so the panel's left edge lands on
+  the sheet's. A day-trip panel passes its **parent's** `alt` so the pair
+  reads as one tinted band in the no-`:has()` fallback. Plain flow — no
+  sticky, no scroll-driven animation. Owns the alternating `--seg-bg` — a
+  gentle tint now that one city shows at a time, but in the no-`:has()`
   fallback the cities stack on one long page again and it's the only thing
   separating them, which is why it stays.
   Its one-column switch is a **container query**, not a media query: the
-  route rail takes a fifth of the viewport out from under the section, so
-  viewport width says nothing useful about how much room the columns have.
-  That needs `container-type: inline-size` on `.segment`, which is only safe
-  because this component no longer owns a sticky pin or a view-timeline.
+  panel sits inside a page frame that caps its own width, so viewport width
+  says nothing useful about how much room the columns have. That needs
+  `container-type: inline-size` on `.segment`, which is only safe because
+  this component owns no sticky pin or view-timeline. It carries no inline
+  padding — the page frame already insets it, and a second inset would push
+  it off the grid's left edge.
 - `SegmentAreas.astro` — composes a base's two columns and nothing else.
-- `DayTripPanel.astro` — a day trip's panel: badge (a `.tape` anchor —
-  "🎒 Day trip from <parent>" — that doubles as the way back up, since one
-  tap re-targets the parent's section), hero polaroid, "Getting there &
-  back", and Ideas. No `StayCard`, no `DayByDay` — structurally absent.
-- `CityPhoto.astro` — the taped polaroid, tilt alternating with the segment.
+- `DayTripPanel.astro` — a day trip's panel: badge (a dashed pill, the same
+  mark the trip wears in the grid — "🎒 Day trip from <parent>" — that
+  doubles as the way back up, since one tap re-targets the parent's
+  section), hero photo, "Getting there & back", and Ideas. No `StayCard`,
+  no `DayByDay` — structurally absent.
+- `CityPhoto.astro` — the hero photo in a paper-and-hairline frame, or an
+  empty one saying "No photo yet".
 - `StayCard.astro` — "Staying at". **Always renders**, booked or not.
 - `TravelCard.astro` — "Transportation". Always renders. For a base it's one
   unlabelled list of the `arrive` legs (empty state: "Nothing booked yet"),
@@ -538,8 +534,8 @@ which looks exactly like "no map configured".
   `DayTripPanel` passes "Getting there & back" with There/Back.
 - `DayByDay.astro` — every day of the stay, booked or not. Free days say
   "Free"; the first day also carries the `arrive` legs.
-- `IdeaChips.astro` — the undated stops as paper tags, each led by a 56px
-  white-matted thumbnail (the stop's `image`, or its category glyph on a
+- `IdeaChips.astro` — the undated stops as flat tiles, each led by a 56px
+  matted thumbnail (the stop's `image`, or its category glyph on a
   tinted tile when there's no photo). Name and tile only; no body text (see
   the stop rules above). Day-trip panels reuse it with the trip's claimed
   stops.
@@ -550,9 +546,12 @@ which looks exactly like "no map configured".
 - `src/components/TripOverview.astro` — the overview table, used only by
   `/overview/`: one paper sheet, a sticky label rail, and one column per
   calendar day, fed by `buildTripCalendar`. Pure static Astro — no island,
-  no JS. The rows, top to bottom: dates; **City** — reads `cityBands`, not
-  `bands` — flat accent-tinted strips (the colour is the data, so no tape
-  and no tilt out here), each an `<a>` into `/plan/#<city>`, with dashed
+  no JS. **It is also the page's navigation** — the city bands and day-trip
+  pills are same-page hashes that select the panels below, and which one is
+  open is drawn by the `:has()` rules `overview.astro` generates. The rows,
+  top to bottom: dates; **City** — reads `cityBands`, not `bands` — flat
+  accent-tinted strips (the colour is the data, so no tape and no tilt out
+  here), each an `<a>` into `#<city>` on the same page, with dashed
   ghosts on segment-less days ("In transit" / "Heading home") and on a
   stay's `arrivalIsTransit` day ("Arriving" — same ghost styling, different
   label, still inside the stay's date range); **Sleeping** — reads `bands`
@@ -574,11 +573,17 @@ which looks exactly like "no map configured".
   and each label spans the full row, because a sticky item can't slide
   inside a one-column grid area), and `.leg` is `position: relative` so its
   sr-only text can't push the page root wider (invisible on desktop, real
-  sideways scroll on mobile). **Booked reservations don't appear here** —
-  dated stops live in `/plan/`'s Day by day.
+  sideways scroll on mobile). That second one is a **general rule, not a
+  local fix**: any `.sr-only` needs a positioned ancestor, or it belongs to
+  the page root and its static position inside a scroll container becomes
+  root overflow — `.chip` and `.idea` are anchored for the same reason,
+  after an unanchored one scrolled the grid off screen on a `#hash` load. **Booked reservations don't appear here** —
+  dated stops live in the city panels' Day by day.
 - `src/components/StopList.astro` + `IdeaCard.astro` — the ruled row list.
-  Used by `/map/<city>/` (`layout="column"`) and the unscheduled strip
-  (`layout="grid"`). `StopList` owns the `stopContent` lookup and the empty
+  Used by `/map/<city>/` (`layout="column"`) and `/overview/`'s unscheduled
+  strip (`layout="grid"`). These two keep the handwritten body line, because
+  the map pages are their main home and the strip is a build-warning surface
+  rather than part of the panel frame. `StopList` owns the `stopContent` lookup and the empty
   state. The row element **is** the `<a>`; non-linking rows are an
   `<article tabindex="-1">` so the map can still focus them.
 - `src/components/Filters.tsx` / `FilterBar.astro` — React island filtering
@@ -628,13 +633,21 @@ default) — a deliberate omission, not a gap.
   than left as a gap. `IdeaChips`, `StopList`, and `.mapslot-blank` each say
   when they're empty. Copy on the page stays user-facing — authoring guidance
   lives here instead.
-- Shared marks (`.hand`, `.swash`, `.tape`, `.tape-icon`, `.pill`,
-  `.note-strip`, `.rise-in`) are defined once in `Base.astro`'s global block.
-  Scoped rules are (0,2,0) and always win, so a component can still tune one
-  locally — see `.hero-cta`, which is `.tape` at button size. `.tape-icon` is
-  the emoji leading a section tape (🏨 Staying at, 🚄 travel, 🗓️ Day by day,
-  💡 Ideas, 🎒 the day-trip badge) — always `aria-hidden`, and **sections
-  wear icons, buttons don't** (the cover CTA and footer tapes stay bare).
+- **Two registers, and they don't mix.** The cover is the scrapbook — tape,
+  tilt, handwriting, the taped photo. `/overview/` is the instrument — paper
+  sheets, hairlines, uppercase micro-labels, accent tints, dashed for
+  anything pencilled. The panels used to be scrapbook because they lived a
+  click away from the grid; now they sit under it, and two registers on one
+  page read as two pages. Keep new marks on the side of the page they're for.
+- Shared marks (`.hand`, `.swash`, `.tape`, `.sheet-label`, `.label-icon`,
+  `.pill`, `.note-strip`, `.rise-in`) are defined once in `Base.astro`'s
+  global block. Scoped rules are (0,2,0) and always win, so a component can
+  still tune one locally — see `.hero-cta`, which is `.tape` at button size.
+  `.sheet-label` is the flat counterpart to `.tape` — the grid's row-label
+  voice, worn by every card header on `/overview/` — and `.label-icon` is the
+  emoji leading one (🏨 Staying at, 🚄 travel, 🗓️ Day by day, 💡 Ideas):
+  always `aria-hidden`, and **sections wear icons, buttons don't** (the cover
+  CTA stays bare, which is why `.tape` has no icon variant).
 - React islands (`Filters`, `MapSlot`) are leaves: they orchestrate static
   Astro DOM via data attributes and never render stop content, because
   markdown bodies can only be rendered by Astro's `render()` in frontmatter.
