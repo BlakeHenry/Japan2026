@@ -2,7 +2,7 @@ import type { CollectionEntry } from 'astro:content';
 import type { TravelMode } from './travel';
 
 type Segment = CollectionEntry<'segments'>;
-type Stop = CollectionEntry<'stops'>;
+export type Stop = CollectionEntry<'stops'>;
 type DayTrip = CollectionEntry<'daytrips'>;
 type SegmentLeg = NonNullable<Segment['data']['arrive']>[number];
 
@@ -335,13 +335,8 @@ export interface TripDayTravel {
   mode: TravelMode;
   /** The full human-readable leg line — tooltip / sr context on the chip */
   text: string;
-  /** Short label — flight number or service name ("AA 190", "Nozomi") */
-  service?: string;
+  /** Door-to-door hours, repeated on every slice — the grid prints it once */
   hours?: number;
-  /** Departure clock time — set only on the entry for the leg's first day */
-  leaves?: string;
-  /** Landing clock time — set only on the entry for the leg's arrival day */
-  lands?: string;
   /** Which slice of the leg this day holds */
   role: 'only' | 'depart' | 'arrive' | 'via';
 }
@@ -355,13 +350,6 @@ export interface TripDay {
   /** Index into itinerary.segments; undefined on segment-less travel days */
   segmentIndex?: number;
   travel: TripDayTravel[];
-  /**
-   * Columns this day's travel block may spread across: itself plus the
-   * following days that have no travel of their own. The overview draws
-   * nothing on empty days, so a leg gets that room for its service name
-   * instead of being squeezed into one day's width.
-   */
-  travelSpan: number;
 }
 
 export interface CalendarBand {
@@ -402,9 +390,6 @@ export interface TripCalendar {
   floats: CalendarFloat[];
 }
 
-/** How far a travel block may spread when the days after it are empty */
-const MAX_TRAVEL_SPAN = 4;
-
 export function buildTripCalendar(
   itinerary: Itinerary,
   start: Date,
@@ -420,7 +405,6 @@ export function buildTripCalendar(
     monthDay: date.getUTCDate(),
     segmentIndex: undefined,
     travel: [],
-    travelSpan: 1,
   }));
 
   const placeLeg = (leg: SegmentLeg, defaultDay: Date) => {
@@ -441,10 +425,7 @@ export function buildTripCalendar(
       days[at].travel.push({
         mode: leg.mode,
         text: leg.text,
-        service: leg.service,
         hours: leg.hours,
-        leaves: role === 'depart' || role === 'only' ? leg.leaves : undefined,
-        lands: role === 'arrive' || role === 'only' ? leg.lands : undefined,
         role,
       });
     });
@@ -479,21 +460,6 @@ export function buildTripCalendar(
       const at = indexByKey.get(dateKey(data.start));
       if (at !== undefined) arrivalTransit[at] = true;
     }
-  });
-
-  // Empty days draw nothing, so a travel day's block may spread into the
-  // quiet days after it — that's the room the service names live in.
-  days.forEach((day, i) => {
-    if (day.travel.length === 0) return;
-    let span = 1;
-    while (
-      span < MAX_TRAVEL_SPAN &&
-      i + span < days.length &&
-      days[i + span].travel.length === 0
-    ) {
-      span += 1;
-    }
-    day.travelSpan = span;
   });
 
   // Contiguous runs of days become bands: each city one tinted strip, the

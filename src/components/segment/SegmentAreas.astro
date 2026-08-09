@@ -1,11 +1,8 @@
 ---
 import type { SegmentItinerary } from '../../lib/itinerary';
-import { formatStay } from '../../lib/itinerary';
+import { formatDay, formatStay } from '../../lib/itinerary';
 import SegmentShell from './SegmentShell.astro';
 import CityPhoto from './CityPhoto.astro';
-import StayCard from './StayCard.astro';
-import TravelCard from './TravelCard.astro';
-import DayByDay from './DayByDay.astro';
 import IdeaChips from './IdeaChips.astro';
 
 interface Props {
@@ -15,9 +12,8 @@ interface Props {
 }
 
 const { si, accent, index } = Astro.props;
-const { segment, days, ideas } = si;
-const { city, cityJa, start, end, lodging, arrive, depart, heroImage, heroAlt, tagline } =
-  segment.data;
+const { segment, days, ideas, booked } = si;
+const { city, cityJa, start, end, heroImage, heroAlt, tagline } = segment.data;
 
 // `end` is the last full day and we leave the next morning, so the day count
 // and the night count are the same number.
@@ -34,14 +30,44 @@ const alt = index % 2 === 1;
   accent={accent}
   alt={alt}
 >
-  <Fragment slot="stay">
+  <Fragment slot="photo">
     <CityPhoto image={heroImage} alt={heroAlt} caption={tagline} />
-    <StayCard city={city} lodging={lodging} />
-    <TravelCard arrive={arrive} depart={depart} />
   </Fragment>
 
   <Fragment slot="plan">
-    <DayByDay days={days} arrive={arrive} />
+    {/* The one block here that isn't always drawn, and the deliberate
+        exception to the empty-states rule: where we're sleeping and how we
+        get here are already stated on the grid above, so a city with nothing
+        booked has nothing to say here that the sheet hasn't said. An empty
+        "Booked" heading would only be the page repeating itself. */}
+    {
+      booked.length > 0 && (
+        <section class="booked">
+          <span class="sheet-label">
+            <span class="label-icon" aria-hidden="true">
+              🗓️
+            </span>
+            Booked
+          </span>
+          <ol class="rows">
+            {booked.map((stop) => (
+              <li class="row">
+                <span class="when">{formatDay(stop.data.date!)}</span>
+                {stop.data.time && <span class="time">{stop.data.time}</span>}
+                <span class="what">
+                  {stop.data.link ? (
+                    <a href={stop.data.link}>{stop.data.title}</a>
+                  ) : (
+                    stop.data.title
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
+
     <IdeaChips stops={ideas} city={city} />
   </Fragment>
 
@@ -51,6 +77,56 @@ const alt = index % 2 === 1;
 </SegmentShell>
 
 <style>
+  .rows {
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Solid hairlines, unlike the dashes that mean pencilled elsewhere: a row
+     only exists here because something is actually booked. */
+  .row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.6rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .when {
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  .time {
+    flex: none;
+    font-weight: 700;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: #6b655a;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    background: var(--paper-raised);
+  }
+
+  /* Highlighter drawn under the words rather than behind them — at this size
+     a filled chip would outshout the city name above it. */
+  .what {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    box-shadow: inset 0 -0.35em color-mix(in srgb, var(--highlight) 75%, transparent);
+  }
+
+  .what a {
+    text-decoration: none;
+  }
+
   .segment-notes {
     max-width: 74rem;
     margin: 2rem auto 0;

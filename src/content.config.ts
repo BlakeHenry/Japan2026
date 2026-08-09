@@ -51,13 +51,15 @@ const leg = z
   .object({
     mode: z.enum(TRAVEL_MODE_KEYS),
     text: z.string(),
-    // The short label the overview grid puts on this leg: a flight number
-    // once there is one ("AA 190"), otherwise the service ("Nozomi", "Ltd
-    // Exp Azusa") or the airline. Keep it to a couple of words — the full
-    // line stays in `text`.
+    // The short label for this leg: a flight number once there is one
+    // ("AA 190"), otherwise the service ("Nozomi", "Ltd Exp Azusa") or the
+    // airline. NOTHING RENDERS THIS TODAY — the overview grid printed it and
+    // the row became unreadable. Kept because it's a fact a human chose and
+    // it's what a real booking carries; keep filling it in.
     service: z.string().optional(),
     // Approximate door-to-door hours. Rough on purpose; omit when nobody has
-    // an estimate yet.
+    // an estimate yet. This is what the overview grid's Travel row shows,
+    // and the only part of a leg it shows.
     hours: z.number().positive().max(24).optional(),
     // Which calendar day(s) the leg occupies on the overview grid, when the
     // default is wrong (an arrive leg defaults to its segment's start day, a
@@ -70,8 +72,9 @@ const leg = z
     arrives: z.coerce.date().optional(),
     // Local clock times, 24h "HH:MM" — quotes required on both, or YAML
     // reads 15:00 as the sexagesimal number 900 (same trap as a stop's
-    // `time`). `leaves` is when we set off, `lands` when we get in; the
-    // overview shows whichever the day in question holds.
+    // `time`). `leaves` is when we set off, `lands` when we get in. Like
+    // `service`, both are authored and currently rendered nowhere — the grid
+    // shows a leg's hours, not its clock.
     leaves: z
       .string()
       .regex(/^\d{2}:\d{2}$/)
@@ -157,8 +160,10 @@ const daytrips = defineCollection({
         // stops in either town). Defaults to [name], so single-town trips
         // don't set it.
         cities: z.array(z.string()).optional(),
-        // Getting there and back from the base. Same rule as segment legs:
-        // pencilled routes; an empty half reads "Nothing booked yet."
+        // Getting there and back from the base — pencilled routes, same
+        // shape as a segment's legs. NOTHING RENDERS THESE: a day trip has no
+        // date, so it has no column on the overview grid, and the grid is the
+        // only place legs show. Authored anyway, for when it does.
         there: z.array(leg).optional(),
         back: z.array(leg).optional(),
         heroImage: image().optional(),
