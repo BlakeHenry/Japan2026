@@ -15,8 +15,8 @@ const { city, lodging } = Astro.props;
     stay, so a stay with nowhere booked should say so out loud rather than
     quietly drop the card and read as if it were settled. */}
 <div class="card">
-  <span class="tape"
-    ><span class="tape-icon" aria-hidden="true">🏨</span>Staying at</span
+  <span class="sheet-label"
+    ><span class="label-icon" aria-hidden="true">🏨</span>Staying at</span
   >
   {
     lodging ? (
@@ -27,7 +27,7 @@ const { city, lodging } = Astro.props;
         {lodging.area && <p class="area">{lodging.area}</p>}
       </Fragment>
     ) : (
-      <p class="empty hand">Nowhere booked in {city} yet.</p>
+      <p class="empty">Nowhere booked in {city} yet.</p>
     )
   }
 </div>
@@ -60,7 +60,7 @@ const { city, lodging } = Astro.props;
 
   .empty {
     margin: 0.55rem 0 0;
-    font-size: 1.2rem;
-    color: var(--ink-muted);
+    font-size: 0.85rem;
+    color: #b0a68f;
   }
 </style>

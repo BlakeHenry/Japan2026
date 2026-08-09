@@ -35,12 +35,12 @@ const { name, cityJa, note, there, back, heroImage, heroAlt, tagline } =
 >
   {/* The badge is also the way back: one tap re-targets the parent's
       section, so it doubles as the panel's up-navigation. */}
-  <a class="tape trip-badge" slot="badge" href={`#${citySlug(parentCity)}`}>
-    <span class="tape-icon" aria-hidden="true">🎒</span>Day trip from {parentCity}
+  <a class="trip-badge" slot="badge" href={`#${citySlug(parentCity)}`}>
+    <span aria-hidden="true">🎒</span> Day trip from {parentCity}
   </a>
 
   <Fragment slot="stay">
-    <CityPhoto image={heroImage} alt={heroAlt} caption={tagline} alt2={alt} />
+    <CityPhoto image={heroImage} alt={heroAlt} caption={tagline} />
     <TravelCard
       arrive={there}
       depart={back}
@@ -60,17 +60,35 @@ const { name, cityJa, note, there, back, heroImage, heroAlt, tagline } =
 </SegmentShell>
 
 <style>
-  /* A link wearing the shared tape mark — needs the anchor defaults off so
-     it reads as a label that happens to be tappable. */
+  /* The same dashed pill this trip wears in the grid above, where dashed
+     means sub-location. Also the way back up: one tap re-targets the parent,
+     so it has to read as tappable without reading as a button. */
   .trip-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     margin-bottom: 0.9rem;
+    border: 1px dashed #b0a68f;
+    border-radius: 4px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink-muted);
     text-decoration: none;
+    transition: background 0.15s ease;
   }
 
   .trip-badge:hover,
   .trip-badge:focus-visible {
-    color: var(--tape-ink);
+    color: var(--ink);
     background: var(--highlight);
+    border-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trip-badge {
+      transition: none;
+    }
   }
 
   .segment-notes {

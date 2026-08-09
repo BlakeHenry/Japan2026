@@ -8,98 +8,72 @@ interface Props {
   image?: ImageMetadata;
   alt?: string;
   caption?: string;
-  /** Alternating tilt so a column of cities doesn't look stamped */
-  alt2?: boolean;
 }
 
-const { image, alt = '', caption, alt2 = false } = Astro.props;
+const { image, alt = '', caption } = Astro.props;
 ---
 
-<figure class="polaroid" data-alt={alt2}>
-  <div class="polaroid-media">
+<figure class="photo">
+  <div class="photo-media">
     {
       image ? (
         <Image
           src={image}
           alt={alt}
           widths={[480, 800, 1200]}
-          sizes="(max-width: 900px) 92vw, 340px"
+          sizes="(max-width: 900px) 92vw, 352px"
           format="webp"
           loading="lazy"
-          class="polaroid-img"
+          class="photo-img"
         />
       ) : (
-        <span class="polaroid-blank hand">No photo yet</span>
+        <span class="photo-blank">No photo yet</span>
       )
     }
   </div>
-  {caption && <figcaption class="hand">{caption}</figcaption>}
+  {caption && <figcaption>{caption}</figcaption>}
 </figure>
 
 <style>
-  .polaroid {
-    position: relative;
-    margin: 0.6rem 0 0;
-    background: #fff;
-    padding: 0.7rem 0.7rem 0.5rem;
-    box-shadow: 0 12px 28px rgb(60 50 30 / 0.16);
-    rotate: -0.6deg;
+  /* A mounted print, not a taped polaroid: the same paper-and-hairline frame
+     the cards beside it use. The tape and the tilt belong to the cover. */
+  .photo {
+    margin: 0;
+    background: var(--paper-raised);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.4rem;
   }
 
-  .polaroid[data-alt='true'] {
-    rotate: 0.6deg;
-  }
-
-  /* Two strips, same as the cover page's photo */
-  .polaroid::before,
-  .polaroid::after {
-    content: '';
-    position: absolute;
-    top: -10px;
-    width: 78px;
-    height: 22px;
-    background: rgb(233 212 150 / 0.85);
-    box-shadow: 0 1px 3px rgb(60 50 30 / 0.15);
-  }
-
-  .polaroid::before {
-    left: 34px;
-    rotate: -3deg;
-  }
-
-  .polaroid::after {
-    right: 34px;
-    rotate: 3deg;
-  }
-
-  .polaroid-media {
+  .photo-media {
     overflow: hidden;
     aspect-ratio: 16 / 10;
+    border-radius: 2px;
   }
 
-  .polaroid :global(.polaroid-img) {
+  .photo :global(.photo-img) {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  /* An empty polaroid still in its frame — the same "stated, not hidden"
+  /* An empty frame rather than no frame — the same "stated, not hidden"
      treatment the stay and travel cards give an unbooked leg. */
-  .polaroid-blank {
+  .photo-blank {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
-    background: color-mix(in srgb, var(--paper-raised) 60%, #fff);
-    font-size: 1.3rem;
-    color: var(--ink-muted);
+    background: color-mix(in srgb, var(--paper) 70%, var(--paper-raised));
+    font-size: 0.85rem;
+    color: #b0a68f;
   }
 
   figcaption {
-    margin-top: 0.5rem;
+    margin-top: 0.45rem;
     text-align: center;
-    font-size: 1.2rem;
-    line-height: 1.25;
-    color: #8a8172;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: var(--ink-muted);
   }
 </style>
