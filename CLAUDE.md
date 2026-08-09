@@ -100,7 +100,7 @@ one falls outside it.
 ## How to add a trip stop (the most common task)
 
 One markdown file in `src/content/stops/` per place. Copy this template,
-delete the optional lines you don't need, and run `npm run build` to
+delete the optional lines you don't need, and run `pnpm build` to
 validate:
 
 ```markdown
@@ -331,9 +331,33 @@ Rules:
 
 ## Commands
 
-- `npm run dev` — local dev server
-- `npm run build` — production build; **this is the validation step** for
+- `pnpm dev` — local dev server
+- `pnpm build` — production build; **this is the validation step** for
   all frontmatter. Run it after any content change.
+
+The package manager is **pnpm**, pinned by the `packageManager` field
+(run through corepack if it isn't installed). `pnpm-workspace.yaml` carries
+the supply-chain settings and the reasoning behind each; three behaviors to
+know about rather than fight:
+
+- **`minimumReleaseAge` quarantines versions younger than 7 days.** If a
+  just-released package version won't resolve, that's the policy working —
+  wait it out rather than override it.
+- **Dependency install scripts are blocked** (pnpm's default). esbuild and
+  sharp run fine from their prebuilt binaries; `allowBuilds` records that
+  decision. If a future dependency genuinely needs its build script, add it
+  there explicitly.
+- **`overrides` redirects `@astrojs/react`'s own `vite: ^8.0.13` dependency
+  down to astro core's `vite@6.4.3`.** Without it `pnpm dev` 500s on every
+  request ("Missing field `moduleType`" from `builtin:vite-react-refresh-
+  wrapper") — astro core still runs classic (rollup) vite@6, but
+  `@astrojs/react`'s own vite@8 (rolldown) pulls in a react-refresh plugin
+  that only works on rolldown-vite, and pnpm's strict isolation resolves it
+  correctly rather than accidentally colliding the two like npm's flat
+  hoisting would. `astro build` is unaffected either way — that plugin only
+  runs in dev. Upstream: https://github.com/withastro/astro/issues/16229
+  ("Astro does not currently support Vite 8"). Remove once `@astrojs/react`
+  drops its vite@8 dependency or astro core moves to vite@8.
 
 Astro's content layer caches aggressively. After deleting or renaming a
 content file, `rm -rf .astro node_modules/.astro` before rebuilding, or the
