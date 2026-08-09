@@ -47,10 +47,43 @@ const stops = defineCollection({
 // are the pencilled route (added once a route is chosen, updated when it's
 // actually booked), and an empty list is what "nothing planned yet" looks
 // like.
-const leg = z.object({
-  mode: z.enum(TRAVEL_MODE_KEYS),
-  text: z.string(),
-});
+const leg = z
+  .object({
+    mode: z.enum(TRAVEL_MODE_KEYS),
+    text: z.string(),
+    // The short label the overview grid puts on this leg: a flight number
+    // once there is one ("AA 190"), otherwise the service ("Nozomi", "Ltd
+    // Exp Azusa") or the airline. Keep it to a couple of words — the full
+    // line stays in `text`.
+    service: z.string().optional(),
+    // Approximate door-to-door hours. Rough on purpose; omit when nobody has
+    // an estimate yet.
+    hours: z.number().positive().max(24).optional(),
+    // Which calendar day(s) the leg occupies on the overview grid, when the
+    // default is wrong (an arrive leg defaults to its segment's start day, a
+    // depart leg to the day after its segment's end). Date-only values —
+    // NEVER a datetime, which zod would coerce in the build machine's local
+    // zone and shift the day. Clock time rides `lands` instead.
+    departs: z.coerce.date().optional(),
+    // Only when the leg lands on a different day than it leaves (the
+    // overnight transpacific flights). The grid paints every day it spans.
+    arrives: z.coerce.date().optional(),
+    // Local clock times, 24h "HH:MM" — quotes required on both, or YAML
+    // reads 15:00 as the sexagesimal number 900 (same trap as a stop's
+    // `time`). `leaves` is when we set off, `lands` when we get in; the
+    // overview shows whichever the day in question holds.
+    leaves: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+    lands: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+  })
+  .refine((l) => !(l.departs && l.arrives) || l.arrives >= l.departs, {
+    message: 'arrives must be >= departs',
+  });
 
 const segments = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/segments' }),
@@ -77,6 +110,12 @@ const segments = defineCollection({
         // arrival.
         arrive: z.array(leg).optional(),
         depart: z.array(leg).optional(),
+        // Marks this stay's FIRST day as an arrival/transit day on the
+        // overview grid — a long landing that eats the day (a 3pm arrival,
+        // say) — instead of a normal city day. Doesn't touch lodging, which
+        // still starts that night; it only changes the City row's label for
+        // that one day.
+        arrivalIsTransit: z.boolean().optional(),
         // Optional so a city can join the itinerary before anyone has a
         // photo of it — CityPhoto and the route rail each render a designed
         // "no photo yet" state instead. Alt text stays mandatory whenever

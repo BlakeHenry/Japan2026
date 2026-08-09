@@ -13,7 +13,9 @@
 export const TRIP = {
   name: 'Japan',
   year: 2026,
-  start: new Date(Date.UTC(2026, 9, 13)),
+  // The day we leave home (and PTO starts), not the day we land in Japan —
+  // Oct 12 is spent in the air and the overview grid says so.
+  start: new Date(Date.UTC(2026, 9, 12)),
   end: new Date(Date.UTC(2026, 9, 27)),
 } as const;
 

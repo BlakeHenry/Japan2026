@@ -13,6 +13,13 @@ A static Astro site in three layers:
   tappable chips). Day trips are **sub-locations**: they hang off their base's
   rail card as smaller tags and open their own panel — same frame as a base,
   minus lodging and Day by day.
+- **`/overview/`** — the whole trip as a spreadsheet: one column per calendar
+  day of the trip window, labelled rows (City / Sleeping / Travel / Day
+  trips), the full viewport wide. Deliberately outside /plan/'s
+  rail-and-tabs frame — the columns get the width the rail would eat — and
+  deliberately without the scrapbook dressing: this is the functional view.
+  The rail's first card links here; its city bands and day-trip pills link
+  back into /plan/'s panels.
 - **`/map/<city>/`** — one full-screen map page per city: rows on the left,
   big map on the right, the way you'd browse a saved list in Google Maps.
 
@@ -20,10 +27,35 @@ Deployed to GitHub Pages automatically on every push to `main`.
 
 ## Current state
 
-**Nothing is booked**, but the route is pencilled. Four cities, back to back, tiling
-the whole window: **Tokyo** Oct 13–16 (checkout the 17th), **Kiso Valley**
-Oct 17–18 (checkout the 19th), **Kyoto** Oct 19–22 (checkout the 23rd), and
-**Osaka** Oct 23–26 (checkout the 27th). Day trips are pencilled in too, as
+**Nothing is booked**, but the route is pencilled. Four stays in three
+cities: **Tokyo** Oct 13–16 (checkout the 17th), **Kyoto** Oct 19–22
+(checkout the 23rd), **Osaka** Oct 23–25 (checkout the 26th), and **Tokyo
+again** for the single night of the 26th (`05-tokyo-return.md`) — the ride
+back up is the 26th and the flights home leave Haneda on the 27th. That
+return stay is the site's one **repeat city**: it slugs `tokyo-2`, and the
+ideas and day trips all stay with the first Tokyo (see "Coming back to a
+city" below).
+
+**Oct 17–18 is an open gap, not a segment.** Kiso Valley was pencilled
+there and got pulled off the itinerary — no replacement is decided, so
+those two days simply have no segment, and the overview grid and rail both
+show them as "In transit" until something is chosen. `03-kyoto.md` lost the
+`arrive` legs that used to route through it (Nagiso, on the old Kiso Valley
+line) for the same reason: the actual path from Tokyo to Kyoto is unchosen
+again, so its Transportation card reads "Nothing booked yet." **Kawaguchiko
+is one candidate**, pencilled as a plain undated-but-dated stop
+(`src/content/stops/kawaguchiko.md`, `date: 2026-10-18`) rather than a
+segment — it has no city to attach to, so it (and the five orphaned Kiso
+Valley ideas below) surface in the **"Not on the itinerary yet"** strip and
+warn at build time. That is the intended behavior, not a bug: a pencilled
+idea without a committed segment is supposed to be visible, not silently
+dropped.
+
+**Tokyo's first day is marked `arrivalIsTransit: true`** — Blake lands at
+3pm and the day is spoken for by getting to the hotel and dinner, so the
+overview's City row shows Oct 13 as a small "Arriving" ghost cell instead of
+joining Tokyo's tinted strip, even though the Sleeping row still (correctly)
+counts that night. Day trips are pencilled in too, as
 their own collection (`src/content/daytrips/`): Ito on Tokyo (an onsen day
 on the Izu coast), Nara and Uji on Kyoto, and Himeji + Kobe on Osaka (one
 combined outing, one file). Each day trip carries pencilled `there`/`back`
@@ -33,29 +65,37 @@ frame.
 No city has lodging, so every Staying-at card shows its empty state. Every
 segment now carries pencilled `arrive` legs (the trains between cities, and
 placeholder flights into Tokyo from Austin and Denver); Osaka also carries
-`depart` (placeholder flights home from KIX). Legs are **pencilled routes
-chosen by the humans** — researched and plausible, but not bookings — and
-they get updated when something is actually booked. The rule stands in
-adjusted form: **don't invent lodging or reservations to make the page look
-fuller, and don't add or change transit legs nobody chose.** Everything on
-the site should be something a person actually chose.
+`depart` (placeholder flights home from KIX). The two Tokyo flights are a
+**split arrival**: Blake's (Austin) departs Oct 12 and lands Oct 13 at
+15:00; James's (Denver) departs Oct 13 and lands Oct 14, landing time not
+yet known. Legs are **pencilled routes chosen by the humans** — researched
+and plausible, but not bookings — and they get updated when something is
+actually booked. The rule stands in adjusted form: **don't invent lodging
+or reservations to make the page look fuller, and don't add or change
+transit legs nobody chose.** Everything on the site should be something a
+person actually chose.
 
 The stops that exist are the five Jameson added (`addedBy: Jameson`) —
 three Pokémon / TCG stops in Osaka, two in Kyoto — plus five researched
 Kiso Valley ideas (the Magome→Tsumago Nakasendo walk, Tsumago-juku,
-Narai-juku, Nezame-no-toko gorge, Kozenji's rock garden). All attach to
-their city's segment, so the **"Not on the itinerary yet"** strip is
-empty and doesn't render. It's still there in the code (and must stay): a
-stop whose `city`/`date` matches no segment lands in it and warns at build
-time rather than silently vanishing. Tokyo has no stops, so its Ideas
-block shows its empty state. Every current stop has a thumbnail in
-`src/assets/stops/`; the Kiso Valley segment has a hero photo
-(`src/assets/segments/kiso-valley.jpg`).
+Narai-juku, Nezame-no-toko gorge, Kozenji's rock garden) and the pencilled
+Kawaguchiko stop. The five Kiso Valley ideas and Kawaguchiko currently
+**render only in the "Not on the itinerary yet" strip**, since Kiso Valley
+has no segment right now — that strip is not empty at the moment. The
+Jameson stops still attach to their city's segment normally. Tokyo has no
+stops, so its Ideas block shows its empty state. Every current stop has a
+thumbnail in `src/assets/stops/` except Kawaguchiko. The unused
+`src/assets/segments/kiso-valley.jpg` hero photo is left in place in case a
+Kiso Valley (or similar) segment comes back.
 
-The trip window (Japan, Oct 13–27 2026) lives in
+The trip window (Oct 12–27 2026) lives in
 [`src/lib/trip.ts`](src/lib/trip.ts), as a code constant rather than content
-so the dates survive an entirely empty itinerary. Segments are legs carved
-out of that window, and the build warns if one falls outside it.
+so the dates survive an entirely empty itinerary. It starts the day we
+**leave home** (and PTO starts), not the day we land in Japan: Oct 12 and
+Oct 27 belong to no segment on purpose — they're pure travel days, and the
+overview grid derives them from the flight legs ("In transit" / "Heading
+home"). Segments are legs carved out of that window, and the build warns if
+one falls outside it.
 
 ## How to add a trip stop (the most common task)
 
@@ -167,9 +207,24 @@ lodging:                # optional in full — a stay with nowhere booked yet
 arrive:                 # optional — how we get here
   - mode: flight        # flight train local bus ferry car walk
     text: Blake · SFO → Haneda · lands 3:05 pm
+    service: AA 190     # optional — the short label the overview grid shows:
+                        # flight number, train service, or airline
+    hours: 16           # optional — approx. door-to-door hours
+    departs: 2026-10-12 # optional — the day the leg starts, when that isn't
+                        # the day it attaches to. DATE ONLY, never a datetime
+    arrives: 2026-10-13 # optional — only when it lands a different day
+    leaves: "07:15"     # optional — local departure time, same rules as lands
+    lands: "15:00"      # optional — local landing time, 24h "HH:MM",
+                        # QUOTES REQUIRED (YAML reads 15:00 as a number)
 depart:                 # optional — how we leave
   - mode: train
     text: Romancecar · Shinjuku → Hakone-Yumoto · 1h 25m
+arrivalIsTransit: true  # optional — marks this stay's FIRST day as an
+                        # arrival/transit day on the overview grid (a long
+                        # landing that eats the day) instead of a normal
+                        # city day. Doesn't touch lodging — the night still
+                        # starts then. Overview-grid-only, like the leg
+                        # timing fields below.
 heroImage: ../../assets/segments/tokyo.jpg   # optional — see below
 heroAlt: Shibuya scramble crossing lit up at night   # required WITH heroImage
 tagline: Neon, backstreets, and the best breakfast on earth   # optional
@@ -191,11 +246,43 @@ fills the first Day-by-day row, which is the one day of a stay whose shape is
 already decided. The route rail deliberately shows no travel text at all —
 its continuous dashed thread is drawing, not data.
 
+The overview fields (`service` / `hours` / `departs` / `arrives` / `leaves` /
+`lands`) exist for the overview grid and nothing else. Defaults when omitted:
+an `arrive` leg sits on its segment's `start` day, a `depart` leg on the day
+after its segment's `end`. `departs`/`arrives` are **date-only** — a datetime
+string would be coerced in the build machine's local timezone and shift the
+day; clock time only ever rides `leaves`/`lands` (quoted, or YAML parses
+`15:00` as the sexagesimal number 900). `service` is the short label the grid
+puts on the leg — keep it to a couple of words, since it sits in one day's
+column; the full line stays in `text` and becomes the cell's tooltip.
+Day-trip `there`/`back` legs share the schema so the fields are legal there,
+but nothing reads them — day trips have no date to hang a column on.
+
 `heroImage` is optional so a city can join the itinerary before anyone has
 a picture of it: without one, the city's polaroid renders as an empty frame
 saying "No photo yet" and its rail card goes photo-less (the shape the
 mobile jump bar always uses). `heroAlt` is required whenever `heroImage` is
 set — the schema enforces it.
+
+### Coming back to a city
+
+A route can return to a city it already stayed in — the last night before a
+flight home is the usual reason. That's just **another segment file with the
+same `city`**, and two rules make it work:
+
+- **Slugs get numbered.** The first stay keeps `citySlug(city)`; later ones
+  get `-2`, `-3`. That slug lives on `SegmentItinerary.slug`, which is what
+  the rail, the section id, the overview's bands, and the `/map/<city>/`
+  route param all read — **never call `citySlug(segment.data.city)` for a
+  stay**, or two stays collide on one anchor and Astro fails on duplicate
+  map routes.
+- **Only the first stay in a city claims its stuff.** Ideas and day trips
+  attach there; a return stay renders with empty Ideas and no day-trip tags
+  on purpose. Otherwise every chip would exist twice and the duplicated
+  day-trip panels would collide on their own slugs.
+
+Dated stops still attach by date, so a booked stop on the return night lands
+in the return stay, which is correct.
 
 ## Day trips (one file per outing)
 
@@ -306,10 +393,17 @@ which looks exactly like "no map configured".
   browsers without `:has()` get the old design instead: every city stacked
   on one long scrolling page. Don't ungate it; without the gate those
   browsers would open to a blank page.
+- `src/pages/overview.astro` — the whole-trip page: back link, plain header
+  (the map pages' register — no tape, no display-size title), then
+  `TripOverview` and `Footer`. Capped at 110rem because spending the full
+  viewport width on the day columns is the reason it's a separate page.
 - `src/components/RouteRail.astro` — the route, start to finish, as a column
   of taped photo cards, and **the only way to move between cities**. Plain
   anchors, no island — each card selects its city's panel via `:target`.
-  Cities and day trips only: no travel legs between cards (that lives in
+  It opens on a photo-less **"The whole trip"** card wearing `formatWindow`'s
+  "Oct 12–27" — a page link to `/overview/`, not a hash, since the grid
+  lives on its own page. Then cities and day trips only: no travel legs
+  between cards (that lives in
   each city's Transportation card), and the rail ends on an inert
   **Home** card — a `<div>`, not an anchor, because there is no `#home`
   section and a dead hash would snap the panel back to the first city; the
@@ -317,8 +411,9 @@ which looks exactly like "no map configured".
   is `:target`
   plus a `:has()` rule generated per city at build time (CSS can't hop from
   a targeted section to its rail card on its own), with one extra generated
-  rule highlighting the first city on a hashless load to match the panel
-  the tab CSS shows; browsers without `:has()` keep the hover treatment.
+  rule highlighting the first city's card on a hashless load to match the
+  panel the tab CSS shows; browsers without `:has()` keep the hover
+  treatment.
   One continuous dashed route thread (`.cards::before`, at `--spine-x`) runs
   behind the whole column from the Tokyo card down through Home; cards are
   opaque and paint over it, so only the stretches between them show. Day
@@ -356,9 +451,29 @@ which looks exactly like "no map configured".
   `<section id>`, island `segmentId`, and `/map/<city>/` route param — they
   must all agree. It strips punctuation ("Himeji + Kobe" → `himeji-kobe`)
   because a `+` in an id would break the generated `:has()` CSS, and
-  `buildItinerary` fails the build on a slug collision.
+  `buildItinerary` fails the build on a slug collision (`overview` and
+  `unscheduled` are reserved slugs in that same namespace). **For a stay,
+  read `SegmentItinerary.slug`, not `citySlug(city)`** — a repeat city is
+  numbered there (see "Coming back to a city").
   `formatStay` renders a stay as arrival→checkout ("Oct 13–17"); `formatRange`
-  renders days-in-city ("Oct 13 – Oct 16") and is what the map pages use.
+  renders days-in-city ("Oct 13 – Oct 16") and is what the map pages use;
+  `formatWindow` is the inclusive compact window ("Oct 12–27", no checkout
+  +1) for the rail's overview card; `formatHours` is the grid's "~16h" /
+  "~30m" shorthand. `buildTripCalendar(itinerary, start, end)` flattens the
+  itinerary onto the trip window for the overview grid: one `TripDay` per
+  calendar day (city membership, that day's slice of each leg, and the
+  `travelSpan` its travel block may spread across — itself plus the
+  following travel-free days, capped at 4), plus **two** sets of column
+  spans. `bands` is the Sleeping-row/floats grouping — one span per stay,
+  unbroken, since a hotel is still needed on the arrival night regardless of
+  anything else. `cityBands` is the City-row grouping: identical to `bands`
+  except a stay's `arrivalIsTransit` day splits off as its own `'arriving'`
+  ghost cell (rendered the same as "In transit" / "Heading home"), so a long
+  landing reads as travel-eaten even though the city and the night's lodging
+  are already decided. Both are `CalendarBand[]`; only `cityBands` ever
+  carries the `'arriving'` kind. `CalendarFloat`s (undated day trips) key off
+  `bands`, not `cityBands` — a day trip is offered across the whole stay, not
+  just its non-arrival days.
 - `src/lib/travel.ts` — travel modes and their glyphs, same shape as
   `categories.ts`: content names a mode, code owns the emoji.
 - `src/lib/categories.ts` — category keys, the four filter groups, and
@@ -408,6 +523,35 @@ which looks exactly like "no map configured".
 ### Shared components
 
 - `src/components/Hero.astro` — the cover page's entire contents.
+- `src/components/TripOverview.astro` — the overview table, used only by
+  `/overview/`: one paper sheet, a sticky label rail, and one column per
+  calendar day, fed by `buildTripCalendar`. Pure static Astro — no island,
+  no JS. The rows, top to bottom: dates; **City** — reads `cityBands`, not
+  `bands` — flat accent-tinted strips (the colour is the data, so no tape
+  and no tilt out here), each an `<a>` into `/plan/#<city>`, with dashed
+  ghosts on segment-less days ("In transit" / "Heading home") and on a
+  stay's `arrivalIsTransit` day ("Arriving" — same ghost styling, different
+  label, still inside the stay's date range); **Sleeping** — reads `bands`
+  — one cell per stay spanning its full days including any arrival-transit
+  one, the lodging name (linked when there's a booking page) or "Not
+  booked"; **Travel** — the leg's `service` led by its mode glyph,
+  then the day's detail ("~16h →" leaving, "→ 15:00" landing), full leg
+  text as tooltip + sr-only; **Day trips** — the undated trips as dashed
+  pills spanning their parent's columns, linking to their panels.
+  **Quiet days draw nothing at all** — no cell, no rule, no column line:
+  the marks on the sheet are the things that happen, which is also what
+  buys the Travel row its room, since a travel block spans into the empty
+  days after it (`travelSpan`). Row hairlines therefore come from a
+  dedicated `.rule` element spanning `2 / -1`, not from per-cell borders.
+  Day cells are deliberately **not** links — only bands, lodging, and
+  pills are, so nothing nests. Two hard-won invariants: the grid element
+  itself is the horizontal scroll container (sticky grid items only engage
+  against their own grid's scrollport, so a wrapper div breaks the rail —
+  and each label spans the full row, because a sticky item can't slide
+  inside a one-column grid area), and `.leg` is `position: relative` so its
+  sr-only text can't push the page root wider (invisible on desktop, real
+  sideways scroll on mobile). **Booked reservations don't appear here** —
+  dated stops live in `/plan/`'s Day by day.
 - `src/components/StopList.astro` + `IdeaCard.astro` — the ruled row list.
   Used by `/map/<city>/` (`layout="column"`) and the unscheduled strip
   (`layout="grid"`). `StopList` owns the `stopContent` lookup and the empty

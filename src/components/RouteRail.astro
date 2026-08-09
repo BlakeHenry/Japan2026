@@ -1,7 +1,7 @@
 ---
 import { Image } from 'astro:assets';
 import type { SegmentItinerary } from '../lib/itinerary';
-import { citySlug, formatShort, formatStay } from '../lib/itinerary';
+import { formatShort, formatStay, formatWindow } from '../lib/itinerary';
 import { TRIP, TRIP_TITLE } from '../lib/trip';
 
 interface Props {
@@ -20,7 +20,7 @@ const { segments, dateRange, nights } = Astro.props;
 const stops = segments.map((si) => {
   const { city, cityJa, start, end, heroImage } = si.segment.data;
   return {
-    id: citySlug(city),
+    id: si.slug,
     city,
     cityJa,
     heroImage,
@@ -40,6 +40,11 @@ const stops = segments.map((si) => {
 // The rail ends where the trip does. Home is a marker, not a destination
 // with a panel, so it never joins `stops` (no anchor, no generated rules).
 const homeDate = formatShort(TRIP.end);
+
+// The rail starts where the trip does, too: the overview card leads off to
+// /overview/, the whole-trip spreadsheet page. A page link, not a hash — the
+// grid left the tab set to claim the full viewport width over there.
+const windowLabel = formatWindow(TRIP.start, TRIP.end);
 
 // "You are here" without JS: :target lands on the <section>, and CSS can't
 // hop from there to the matching rail card by itself. The set of cities is
@@ -81,6 +86,18 @@ const defaultRule =
   </p>
 
   <ol class="cards">
+    <li>
+      {/* The whole-trip spreadsheet, over on /overview/. Photo-less on
+          purpose: it's the sheet everything else is taped to, not one of
+          the polaroids. */}
+      <a class="route-card" href="/overview/">
+        <span class="tape-strip" aria-hidden="true" />
+        <span class="card-foot">
+          <span class="route-city hand">The whole trip</span>
+          <span class="card-dates">{windowLabel}</span>
+        </span>
+      </a>
+    </li>
     {
       stops.map((s) => (
         <li>
