@@ -177,10 +177,10 @@ export function buildItinerary(
     return nth === 1 ? base : `${base}-${nth}`;
   });
 
-  // Every section slug shares one `:target` namespace on /plan/. A collision
-  // doesn't error anywhere on its own — it just quietly breaks navigation and
-  // the generated rail-highlight CSS — so it fails the build the way a bad
-  // frontmatter field would.
+  // Every section slug shares one `:target` namespace on /overview/. A
+  // collision doesn't error anywhere on its own — it just quietly breaks
+  // navigation and the generated band-highlight CSS — so it fails the build
+  // the way a bad frontmatter field would.
   const slugs = [
     ...segmentSlugs,
     ...daytrips.map((t) => citySlug(t.data.name)),
@@ -325,7 +325,7 @@ export function formatHours(h: number): string {
 
 // --- The whole-trip calendar ------------------------------------------------
 // buildTripCalendar() flattens an itinerary onto the trip window for the
-// overview grid on /plan/: one entry per calendar day — including the days no
+// overview grid: one entry per calendar day — including the days no
 // segment claims, which is exactly how the fly-out and fly-home days get onto
 // the page — plus the column spans the grid draws as city bands and day-trip
 // floats.

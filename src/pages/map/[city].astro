@@ -40,8 +40,8 @@ const groups = filterGroupsFor(si.all.map((s) => s.data.category));
 ---
 
 {/* The saved-list view: everything for one city, list beside a full-height
-    map. Deliberately outside the plan page's parallax spine — those two
-    panes both want the whole viewport, which a vertical scroll can't give.
+    map. Deliberately its own page — the list and the map both want the whole
+    viewport, which they'd never get sharing one with the overview grid.
 
     #{segmentId} wraps both the rows and the map, which is the entire DOM
     contract MapSlot and Filters scope themselves to, so both islands work
@@ -52,7 +52,7 @@ const groups = filterGroupsFor(si.all.map((s) => s.data.category));
 >
   <div class="map-page" id={segmentId} style={`--accent: ${accentFor(index)}`}>
     <div class="map-back">
-      <a href={`/plan/#${segmentId}`}>← Back to the plan</a>
+      <a href={`/overview/#${segmentId}`}>← Back to the plan</a>
     </div>
 
     <div class="map-list">
