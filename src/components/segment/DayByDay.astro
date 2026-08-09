@@ -30,8 +30,8 @@ const label = (d: Date) => ({
     city with nothing booked at all reads as a column of free days, which is
     an honest picture of where the planning stands. */}
 <section class="dbd">
-  <span class="tape"
-    ><span class="tape-icon" aria-hidden="true">🗓️</span>Day by day</span
+  <span class="sheet-label"
+    ><span class="label-icon" aria-hidden="true">🗓️</span>Day by day</span
   >
   <ol class="days">
     {
@@ -62,7 +62,7 @@ const label = (d: Date) => ({
                   {stop.data.time && <span class="resv-time">{stop.data.time}</span>}
                 </span>
               ))}
-              {free && <span class="free hand">Free</span>}
+              {free && <span class="free">Free</span>}
             </span>
           </li>
         );
@@ -84,7 +84,9 @@ const label = (d: Date) => ({
     gap: 0.4rem 1rem;
     align-items: baseline;
     padding: 0.55rem 0;
-    border-bottom: 1px dashed #d8cdb2;
+    /* Solid, unlike the pencilled-route dashes on the travel card: which days
+       the stay covers is settled even when nothing is booked on them. */
+    border-bottom: 1px solid var(--border);
   }
 
   .when {
@@ -141,7 +143,7 @@ const label = (d: Date) => ({
   }
 
   .free {
-    font-size: 1.2rem;
+    font-size: 0.78rem;
     color: #b0a68f;
   }
 

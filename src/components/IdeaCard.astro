@@ -76,6 +76,10 @@ const linkAttrs = href
     align-items: flex-start;
     gap: 0.9rem;
     padding: 0.5rem 0.35rem;
+    /* Anchors the sr-only "opens in a new tab" text — unanchored it lands at
+       page-root coordinates and grows the root's scrollable overflow. Same
+       fix, same reason, as the overview grid's .leg. */
+    position: relative;
     border-radius: 8px 8px 0 0;
     /* Bottom hairline on every row (ruled journal lines): a sibling
        combinator draws wrong lines in the two-column grid and when

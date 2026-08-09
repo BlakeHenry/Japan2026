@@ -37,8 +37,8 @@ const anyMaps = chips.some((c) => c.toMaps);
 ---
 
 <section class="ideas">
-  <span class="tape" data-tilt="right">
-    <span class="tape-icon" aria-hidden="true">💡</span>Ideas{
+  <span class="sheet-label">
+    <span class="label-icon" aria-hidden="true">💡</span>Ideas{
       anyMaps && ' · tap to open Maps'
     }
   </span>
@@ -102,7 +102,7 @@ const anyMaps = chips.some((c) => c.toMaps);
         )}
       </div>
     ) : (
-      <p class="empty hand">Nothing on the {city} list yet.</p>
+      <p class="empty">Nothing on the {city} list yet.</p>
     )
   }
 </section>
@@ -116,49 +116,45 @@ const anyMaps = chips.some((c) => c.toMaps);
     margin-top: 0.9rem;
   }
 
-  /* Loose paper tags rather than buttons — the whole chip is the target, and
-     the nth-child tilts keep a wrapped block from reading as a grid. Each tag
-     leads with a small photo print (or a glyph tile for stops without a
-     photo), so the left padding is tight to let it sit like a mounted print. */
+  /* Tiles rather than buttons — the whole chip is the target. Each leads with
+     a small print (or a glyph tile for stops without a photo), so the left
+     padding is tight to let the image sit flush in its frame. */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
+    /* Anchors the sr-only "opens in a new tab" text. Unanchored it belongs to
+       the page root, and its static position deep inside the scrolling panel
+       becomes root overflow — enough that a #hash load scrolls the whole
+       page and takes the grid off screen with it. Same fix as the overview
+       grid's .leg. */
+    position: relative;
     background: var(--paper-raised);
-    box-shadow: 0 3px 8px rgb(60 50 30 / 0.14);
+    border: 1px solid var(--border);
     border-radius: 4px;
     padding: 0.3rem 0.8rem 0.3rem 0.3rem;
     font-size: 0.92rem;
     color: var(--ink);
     text-decoration: none;
-    rotate: -0.4deg;
-    transition:
-      background 0.15s ease,
-      rotate 0.15s ease,
-      translate 0.15s ease;
-  }
-
-  .chip:nth-child(even) {
-    rotate: 0.4deg;
+    transition: background 0.15s ease;
   }
 
   a.chip:hover,
   a.chip:focus-visible {
     background: color-mix(in srgb, var(--highlight) 55%, var(--paper-raised));
+    border-color: transparent;
     color: var(--ink);
-    rotate: 0deg;
-    translate: 0 -2px;
   }
 
-  /* The thumbnail: a tiny white-matted print, same vocabulary as the
-     polaroid. Doubles as the glyph tile when there's no photo. */
+  /* The thumbnail, matted the way the city photo is framed. Doubles as the
+     glyph tile when there's no photo. */
   .chip-photo {
     flex: none;
     width: 56px;
     height: 56px;
-    background: #fff;
-    padding: 3px;
-    box-shadow: 0 1px 3px rgb(60 50 30 / 0.18);
+    background: var(--paper-raised);
+    border: 1px solid var(--border);
+    padding: 2px;
     border-radius: 2px;
   }
 
@@ -183,8 +179,8 @@ const anyMaps = chips.some((c) => c.toMaps);
 
   .empty {
     margin: 0.9rem 0 0;
-    font-size: 1.2rem;
-    color: var(--ink-muted);
+    font-size: 0.85rem;
+    color: #b0a68f;
   }
 
   @media (prefers-reduced-motion: reduce) {

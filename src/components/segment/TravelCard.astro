@@ -35,8 +35,8 @@ const showSecond = firstLabel !== undefined || depart.length > 0;
     always renders: every city is one we arrive in and leave, and hiding the
     whole thing would make an unplanned trip look like a settled one. */}
 <div class="card">
-  <span class="tape" data-tilt="right"
-    ><span class="tape-icon" aria-hidden="true">🚄</span>{heading}</span
+  <span class="sheet-label"
+    ><span class="label-icon" aria-hidden="true">🚄</span>{heading}</span
   >
 
   {firstLabel && <p class="leg-head">{firstLabel}</p>}
@@ -53,7 +53,7 @@ const showSecond = firstLabel !== undefined || depart.length > 0;
         ))}
       </ul>
     ) : (
-      <p class="empty hand">Nothing booked yet.</p>
+      <p class="empty">Nothing booked yet.</p>
     )
   }
 
@@ -73,7 +73,7 @@ const showSecond = firstLabel !== undefined || depart.length > 0;
             ))}
           </ul>
         ) : (
-          <p class="empty hand">Nothing booked yet.</p>
+          <p class="empty">Nothing booked yet.</p>
         )}
       </>
     )
@@ -97,10 +97,10 @@ const showSecond = firstLabel !== undefined || depart.length > 0;
     color: #b0a68f;
   }
 
-  /* With no first label the list (or empty note) directly follows the tape,
-     which used to get its breathing room from .leg-head's margin. */
-  .tape + .legs,
-  .tape + .empty {
+  /* With no first label the list (or empty note) directly follows the card's
+     label, which used to get its breathing room from .leg-head's margin. */
+  .sheet-label + .legs,
+  .sheet-label + .empty {
     margin-top: 0.85rem;
   }
 
@@ -132,7 +132,7 @@ const showSecond = firstLabel !== undefined || depart.length > 0;
 
   .empty {
     margin: 0.1rem 0 0;
-    font-size: 1.15rem;
-    color: var(--ink-muted);
+    font-size: 0.85rem;
+    color: #b0a68f;
   }
 </style>

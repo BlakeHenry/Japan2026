@@ -38,7 +38,11 @@ const FLOAT_ROW = 5;
     the rows stay legible while the days scroll. Quiet days are drawn as
     nothing at all: the marks on the sheet are the things that happen. The
     only anchors are the city bands, lodging links, and the day-trip pills;
-    day cells stay link-free so nothing nests. */}
+    day cells stay link-free so nothing nests.
+
+    The bands and pills are same-page hashes, which makes this grid the page's
+    navigation: each one selects its panel below. Which one is open is drawn
+    by the :has() rules the page generates — see overview.astro. */}
 <div class="sheet">
   <div class="grid" style={`--cols: ${days.length}`}>
     <span class="corner" aria-hidden="true"></span>
@@ -57,7 +61,7 @@ const FLOAT_ROW = 5;
         b.kind === 'city' ? (
           <a
             class="band"
-            href={`/plan/#${b.slug}`}
+            href={`#${b.slug}`}
             style={`--band-accent: ${accentFor(b.segmentIndex!)}; grid-column: ${col(b.start)} / span ${b.span}`}
           >
             {b.label}
@@ -154,7 +158,7 @@ const FLOAT_ROW = 5;
       floats.map((f) => (
         <a
           class="float"
-          href={`/plan/#${f.slug}`}
+          href={`#${f.slug}`}
           style={`grid-column: ${col(f.start)} / span ${f.span}; grid-row: ${FLOAT_ROW + f.row}`}
         >
           <span aria-hidden="true">🎒</span> {f.name}
@@ -374,8 +378,8 @@ const FLOAT_ROW = 5;
   }
 
   /* Rows 5+ — undated day trips under their base's columns, wearing the
-     jump bar's dashed-outline pill (dashed = sub-location). Anchors into
-     their panels on /plan/. */
+     dashed-outline pill that means sub-location. Anchors into their panels
+     below. */
   .float {
     justify-self: center;
     align-self: start;

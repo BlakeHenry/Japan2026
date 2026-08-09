@@ -185,12 +185,26 @@ const jaFontHref =
     rotate: 1.2deg;
   }
 
-  /* Leading emoji on a section tape. Decorative (always aria-hidden), sized
-     up from the tape's tiny caps because an emoji at 0.63rem is a smudge,
-     and pulled out of the letterspacing so the tracking doesn't gap it from
-     its word. Sections wear icons; buttons (the cover CTA) don't. */
-  .tape > .tape-icon {
-    font-size: 1.45em;
+  /* The flat counterpart to .tape: the overview sheet's row-label voice, worn
+     by every card header on that page. The scrapbook register belongs to the
+     cover; the working view is one instrument, and it labels its parts the
+     way the grid labels its rows. .tape keeps the cover's one button — which
+     is why the icon variant lives here and not there: sections wear icons,
+     buttons don't. */
+  .sheet-label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #b0a68f;
+  }
+
+  /* Decorative (always aria-hidden), sized up from the label's tiny caps
+     because an emoji at 0.62rem is a smudge, and pulled out of the
+     letterspacing so the tracking doesn't gap it from its word. */
+  .sheet-label > .label-icon {
+    font-size: 1.35em;
     letter-spacing: normal;
     margin-right: 0.35em;
     vertical-align: -0.12em;

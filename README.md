@@ -3,11 +3,11 @@
 Our itinerary for the 2026 Japan trip, as a site instead of a shared doc.
 Scroll through it here: **https://japantrip2026.io**
 
-The cover at `/` opens into the itinerary at `/plan/`: a route rail of
-taped photo cards on the left, and one city at a time beside it — the rail
-is the only way to move between cities. Day trips hang off their base's
-rail card as smaller tags and open their own panel. There's also a
-full-screen map page per city at `/map/<city>/`. Built with
+The cover at `/` opens into the plan at `/overview/`: the whole trip as a
+grid, one column per day, with every city band and day-trip pill selecting
+that place's panel below it — one at a time. The grid is the only way to
+move between cities. There's also a full-screen map page per city at
+`/map/<city>/`. Built with
 [Astro](https://astro.build) and deployed automatically to GitHub Pages on
 every push to `main`.
 
@@ -133,8 +133,8 @@ and DNS). There's no separate deploy step to run — merging is publishing.
 
 ```
 src/
-  pages/index.astro       the cover: hero + one button into /plan/
-  pages/plan.astro        the itinerary: route rail + one section at a time
+  pages/index.astro       the cover: hero + one button into /overview/
+  pages/overview.astro    the plan: whole-trip grid + one city panel at a time
   content/segments/*.md   one file per contiguous stay (city, lodging, dates)
   content/daytrips/*.md   one file per day trip out of a base
   content/stops/*.md      one file per trip stop
@@ -142,11 +142,15 @@ src/
   lib/itinerary.ts        build-time helper: expands segments into days, attaches stops
   layouts/Base.astro      HTML shell + global design tokens and shared marks
   pages/map/[city].astro  full-screen map page per city
-  components/             Hero, RouteRail, segment/, StopList, IdeaCard, map/, Footer
+  components/             Hero, TripOverview, segment/, StopList, IdeaCard, map/, Footer
   assets/segments/        city photos (processed via astro:assets)
 .github/workflows/deploy.yml   GitHub Pages deployment
 ```
 
-The scroll/parallax effects are pure CSS (`animation-timeline: view()`) —
-no JavaScript. Reduced-motion users and older browsers get the same page
-without the motion.
+Picking a city is pure CSS too — the grid's bands are ordinary `#hash`
+links and the panels swap on `:target`, so it works with JavaScript off,
+deep links land on the right city, and Back/Forward walk through them. The
+only JavaScript on the site is the map page's filtering and pin
+highlighting, which sits on top of HTML that already renders without it.
+Reduced-motion users and older browsers get the same page without the
+motion.
