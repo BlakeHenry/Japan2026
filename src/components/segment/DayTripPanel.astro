@@ -3,7 +3,6 @@ import type { DayTripItinerary } from '../../lib/itinerary';
 import { citySlug } from '../../lib/itinerary';
 import SegmentShell from './SegmentShell.astro';
 import CityPhoto from './CityPhoto.astro';
-import TravelCard from './TravelCard.astro';
 import IdeaChips from './IdeaChips.astro';
 
 interface Props {
@@ -17,13 +16,14 @@ interface Props {
 }
 
 const { dt, parentCity, accent, alt } = Astro.props;
-const { name, cityJa, note, there, back, heroImage, heroAlt, tagline } =
-  dt.trip.data;
+const { name, cityJa, note, heroImage, heroAlt, tagline } = dt.trip.data;
 ---
 
-{/* Same frame as a base, minus what a day trip doesn't have: no StayCard
-    (we sleep at the base) and no DayByDay (which day is still unchosen).
-    Structurally absent rather than hidden — there's nothing to book. */}
+{/* The same frame a base city gets — photo, ideas, notes — plus the badge
+    that says this one hangs off a base. Nothing is missing that a base has:
+    a base's lodging and travel live on the grid above, and a day trip has
+    neither. Its authored `there`/`back` legs stay in the file and render
+    nowhere until the grid grows a row that can hold them. */}
 <SegmentShell
   id={dt.slug}
   title={name}
@@ -39,15 +39,8 @@ const { name, cityJa, note, there, back, heroImage, heroAlt, tagline } =
     <span aria-hidden="true">🎒</span> Day trip from {parentCity}
   </a>
 
-  <Fragment slot="stay">
+  <Fragment slot="photo">
     <CityPhoto image={heroImage} alt={heroAlt} caption={tagline} />
-    <TravelCard
-      arrive={there}
-      depart={back}
-      heading="Getting there & back"
-      firstLabel="There"
-      secondLabel="Back"
-    />
   </Fragment>
 
   <Fragment slot="plan">

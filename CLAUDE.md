@@ -10,17 +10,19 @@ A static Astro site in three layers:
   labelled rows (City / Sleeping / Travel / Day trips), the full viewport
   wide. That grid is also **the only navigation** — every city band and
   day-trip pill is a same-page hash that opens that place's panel below it,
-  **one at a time**. A city panel is a header, then the stay on the left
-  (photo, where we're sleeping, how we get there) and what we do with it on
-  the right (day by day, then ideas as tappable chips). Day trips are
+  **one at a time**. A city panel is deliberately thin: a header, the photo on
+  the left, and on the right whatever we've actually booked (only when
+  something is) followed by the ideas as tappable chips. Day trips are
   **sub-locations**: they hang off their base's columns as dashed pills and
-  open their own panel — same frame as a base, minus lodging and Day by day.
-  On desktop the page is locked to the viewport so the grid never moves and
-  the panel scrolls in its own row; below 900px the lock comes off and the
-  document scrolls, because a grid that eats a third of a phone screen would
-  leave the panel a letterbox. The whole page is one flat register — paper,
-  hairlines, accent tints — and deliberately not the cover's scrapbook: this
-  is the functional view, and two registers on one page read as two pages.
+  open their own panel — the same frame, plus a badge. **The sheet answers
+  "when and where"; the panel answers "what's there"** — lodging and travel
+  are stated once, on the grid, and the panels don't repeat them.
+  The document scrolls normally at every width: the grid is the top of the
+  page rather than a pinned half of it, so once you've scrolled past the
+  sheet the open panel has the whole viewport. The whole page is one flat
+  register — paper, hairlines, accent tints — and deliberately not the
+  cover's scrapbook: this is the functional view, and two registers on one
+  page read as two pages.
 - **`/map/<city>/`** — one full-screen map page per city: rows on the left,
   big map on the right, the way you'd browse a saved list in Google Maps.
 
@@ -43,7 +45,7 @@ those two days simply have no segment, and the overview grid
 shows them as "In transit" until something is chosen. `03-kyoto.md` lost the
 `arrive` legs that used to route through it (Nagiso, on the old Kiso Valley
 line) for the same reason: the actual path from Tokyo to Kyoto is unchosen
-again, so its Transportation card reads "Nothing booked yet." **Kawaguchiko
+again, so nothing marks Oct 19 on the grid's Travel row. **Kawaguchiko
 is one candidate**, pencilled as a plain undated-but-dated stop
 (`src/content/stops/kawaguchiko.md`, `date: 2026-10-18`) rather than a
 segment — it has no city to attach to, so it (and the five orphaned Kiso
@@ -60,13 +62,16 @@ counts that night. Day trips are pencilled in too, as
 their own collection (`src/content/daytrips/`): Ito on Tokyo (an onsen day
 on the Izu coast), Nara and Uji on Kyoto, and Himeji + Kobe on Osaka (one
 combined outing, one file). Each day trip carries pencilled `there`/`back`
-train legs; none has a photo yet, so their polaroids still show the empty
+train legs — **authored but currently rendered nowhere**, since day trips
+have no date to hang a grid column on and the panels no longer carry a
+travel card; none has a photo yet, so their polaroids still show the empty
 frame.
 
-No city has lodging, so every Staying-at card shows its empty state. Every
-segment now carries pencilled `arrive` legs (the trains between cities, and
-placeholder flights into Tokyo from Austin and Denver); Osaka also carries
-`depart` (placeholder flights home from KIX). The two Tokyo flights are a
+No city has lodging, so the grid's Sleeping row reads "Not booked" for every
+stay. Every segment now carries pencilled `arrive` legs (the trains between
+cities, and placeholder flights into Tokyo from Austin and Denver); the
+Tokyo return stay also carries `depart` (placeholder flights home from
+Haneda). The two Tokyo flights are a
 **split arrival**: Blake's (Austin) departs Oct 12 and lands Oct 13 at
 15:00; James's (Denver) departs Oct 13 and lands Oct 14, landing time not
 yet known. Legs are **pencilled routes chosen by the humans** — researched
@@ -125,9 +130,11 @@ Rules:
 
 - **No `date` → the stop is an idea**: it becomes a chip in its city's Ideas
   block. This is the default and the norm.
-- **With `date` → the stop is a scheduled event**: it appears on its day in
-  **Day by day**, never among the idea chips. Only use `date` for actual
-  bookings (dinner reservations, timed tickets).
+- **With `date` → the stop is a scheduled event**: it appears in its city
+  panel's **Booked** list, never among the idea chips. Only use `date` for
+  actual bookings (dinner reservations, timed tickets). That list is the one
+  block on a panel that isn't always drawn — with nothing booked there's no
+  heading at all.
 - **Dated stops attach by date, not by city.** A booked stop lands in
   whichever segment its `date` falls inside; its `city` is only checked so
   the build can warn you when the two disagree. Read the build output.
@@ -167,7 +174,7 @@ One target, in this order:
 
 So a stop with **both** coordinates and a `link` opens Maps, not the site —
 on the day, "where is it" beats "what are its hours", and the venue's site is
-one tap away inside Maps. Booked stops keep their `link` on their Day-by-day
+one tap away inside Maps. Booked stops keep their `link` on their Booked
 row regardless.
 
 Valid `category` keys (defined in `src/lib/categories.ts`):
@@ -240,23 +247,28 @@ or on lodging: legs are the pencilled route (updated in place when something
 is actually booked), and lodging is added only once it's real. Legs are
 authored on the **arriving** side — each city's `arrive` says how we get to
 it — and only the last city carries `depart` (the flight home); everything
-else's onward travel is simply the next city's arrival. They render in the
-city's **Transportation** card: a single unlabelled list of the arrival legs,
-plus a "Heading home" block only when `depart` legs exist. `arrive` also
-fills the first Day-by-day row, which is the one day of a stay whose shape is
-already decided.
+else's onward travel is simply the next city's arrival. **The grid's Travel
+row is the only place legs render** — the panels carry no travel card.
 
-The overview fields (`service` / `hours` / `departs` / `arrives` / `leaves` /
-`lands`) exist for the overview grid and nothing else. Defaults when omitted:
-an `arrive` leg sits on its segment's `start` day, a `depart` leg on the day
-after its segment's `end`. `departs`/`arrives` are **date-only** — a datetime
-string would be coerced in the build machine's local timezone and shift the
-day; clock time only ever rides `leaves`/`lands` (quoted, or YAML parses
-`15:00` as the sexagesimal number 900). `service` is the short label the grid
-puts on the leg — keep it to a couple of words, since it sits in one day's
-column; the full line stays in `text` and becomes the cell's tooltip.
-Day-trip `there`/`back` legs share the schema so the fields are legal there,
-but nothing reads them — day trips have no date to hang a column on.
+What that row shows of a leg is deliberately just two things: the `mode`
+glyph and `hours` as "~16h", because the question it answers is how much of
+a day the travelling eats. A leg that crosses midnight prints its hours on
+the day it starts and a bare "→ ✈️" on the days it lands in, so every travel
+day is marked and the duration is stated once. `text` is the whole line, and
+it stays as the cell's tooltip and its screen-reader text.
+
+`departs`/`arrives` still decide which days a leg paints, and are
+**date-only** — a datetime string would be coerced in the build machine's
+local timezone and shift the day. Clock time only ever rides
+`leaves`/`lands` (quoted, or YAML parses `15:00` as the sexagesimal number
+900).
+
+`service`, `leaves`, and `lands` are **legal, authored frontmatter that
+nothing currently renders.** The grid used to print them and they made it
+unreadable. They stay in the schema because they're facts a human chose and
+they're what a real booking will carry, so keep filling them in — but don't
+expect to see them on the page today. Day-trip `there`/`back` legs are in
+the same position: the fields are legal, and nothing reads them.
 
 `heroImage` is optional so a city can join the itinerary before anyone has
 a picture of it: without one, the city's polaroid renders as an empty frame
@@ -286,11 +298,11 @@ in the return stay, which is correct.
 ## Day trips (one file per outing)
 
 A day trip is a **sub-location of a base**: one markdown file in
-`src/content/daytrips/`, rendered as a smaller tag hanging off its parent's
-rail card and — when selected — a panel of its own. The panel is the base
-frame minus what a day trip doesn't have: **no lodging** (we sleep at the
-base) and **no Day by day** (which day is still unchosen). Both are absent
-by design, not fields waiting to be added.
+`src/content/daytrips/`, rendered as a dashed pill hanging off its parent's
+columns in the grid and — when selected — a panel of its own: badge, photo,
+ideas, notes. That's the same shape a base city gets, since a base's lodging
+and travel live on the grid rather than in its panel and a day trip has
+neither. Nothing here is a field waiting to be added.
 
 ```markdown
 ---
@@ -399,9 +411,8 @@ which looks exactly like "no map configured".
   and `TripOverview`, then a `<main>` of one `SegmentAreas` per segment
   (each followed by its `DayTripPanel`s — the Fragment flattens, so every
   panel is a **direct child of `<main>`**, which the tab CSS requires),
-  the "Not on the itinerary yet" strip, and `Footer` (inside `<main>` —
-  on desktop the page doesn't scroll, so outside it the footer would be
-  unreachable). Capped at 110rem because spending the full width on the day
+  the "Not on the itinerary yet" strip, and `Footer` (inside `<main>`, where
+  it ends whichever panel is open). Capped at 110rem because spending the full width on the day
   columns is the point of the grid. Astro emits it as `overview/index.html`,
   so **always link it with a trailing slash** (`/overview/`) or GitHub Pages
   answers with a 301 first.
@@ -409,13 +420,13 @@ which looks exactly like "no map configured".
   are `display: none` except the `:target` one, and a `:not(:has(...))` rule
   shows the first city on a hashless load. `:target` is scoped to `.segment`
   so targeting `#unscheduled` or a stop id falls back to the first city
-  instead of hiding everything. Above 900px the same block locks `.ov-layout`
-  to `100svh` and makes `<main>` the scroll container (the map page's
-  `min-height: 0` + `overflow-y: auto` pattern), so the grid holds row one;
-  below that only the display-swap applies and the document scrolls. The row
-  is `minmax(18rem, 1fr)`, not `minmax(0, 1fr)`: on a very short window the
-  wrapper overflows the viewport and the root scrolls a little rather than
-  crushing the panel to nothing.
+  instead of hiding everything. **The display swap is all the block does** —
+  the page has no viewport lock and no inner scroll container at any width;
+  the document scrolls, and selecting a band scrolls to its panel the way
+  the browser scrolls to any `:target` (smoothly, per `Base.astro`'s
+  `scroll-behavior` and its reduced-motion reset). A small ungated
+  `scroll-margin-top` on `.segment` keeps the panel off the viewport edge
+  when it lands.
   Two ordering traps. `.segment:first-of-type` means the first `<section>`
   child of `<main>`, so **the grid lives in `.ov-top`, outside `<main>`** —
   a sectioning element above the panels would silently steal that rule and
@@ -472,9 +483,9 @@ which looks exactly like "no map configured".
   +1) for the page header; `formatHours` is the grid's "~16h" /
   "~30m" shorthand. `buildTripCalendar(itinerary, start, end)` flattens the
   itinerary onto the trip window for the overview grid: one `TripDay` per
-  calendar day (city membership, that day's slice of each leg, and the
-  `travelSpan` its travel block may spread across — itself plus the
-  following travel-free days, capped at 4), plus **two** sets of column
+  calendar day (city membership, and that day's slice of each leg — its
+  `mode`, `hours`, full `text`, and which end of the leg the day holds),
+  plus **two** sets of column
   spans. `bands` is the Sleeping-row/floats grouping — one span per stay,
   unbroken, since a hotel is still needed on the arrival night regardless of
   anything else. `cityBands` is the City-row grouping: identical to `bands`
@@ -498,9 +509,12 @@ which looks exactly like "no map configured".
 ### The city section (`src/components/segment/`)
 
 - `SegmentShell.astro` — the frame, shared by base and day-trip panels:
-  header (title + `titleJa` + subline) and a two-column grid with `stay` and
+  header (title + `titleJa` + subline) and a two-column grid with `photo` and
   `plan` slots, plus an optional `badge` slot above the header (the day-trip
-  marker). The header **is the grid's band** at panel scale — the same
+  marker). The narrow left column is what holds the photo to postcard scale;
+  given the whole 74rem panel it would fill the screen and push the ideas out
+  of sight, which is why the two columns survived the strip-down.
+  The header **is the grid's band** at panel scale — the same
   `color-mix(… 20% …)` tint over a 3px accent left key — so the band you
   clicked and the panel that answers read as one object; that echo is also
   why the title wears no highlighter chip. `.segment-inner` is capped at
@@ -518,22 +532,21 @@ which looks exactly like "no map configured".
   this component owns no sticky pin or view-timeline. It carries no inline
   padding — the page frame already insets it, and a second inset would push
   it off the grid's left edge.
-- `SegmentAreas.astro` — composes a base's two columns and nothing else.
+- `SegmentAreas.astro` — a base city's panel: the photo on the left, and on
+  the right the **Booked** list followed by Ideas. The Booked list is the
+  only block on either panel that isn't always drawn — it renders when
+  `si.booked` has something in it and is absent otherwise (see the
+  empty-states rule below for why that's the one exception). Its rows are
+  inline here rather than a component because dated stops only ever attach to
+  a segment, never to a day trip: date, an optional time pill, and the title
+  linked to the stop's `link` when it has one.
 - `DayTripPanel.astro` — a day trip's panel: badge (a dashed pill, the same
   mark the trip wears in the grid — "🎒 Day trip from <parent>" — that
   doubles as the way back up, since one tap re-targets the parent's
-  section), hero photo, "Getting there & back", and Ideas. No `StayCard`,
-  no `DayByDay` — structurally absent.
+  section), hero photo, and Ideas. Its `there`/`back` legs are authored and
+  render nowhere.
 - `CityPhoto.astro` — the hero photo in a paper-and-hairline frame, or an
   empty one saying "No photo yet".
-- `StayCard.astro` — "Staying at". **Always renders**, booked or not.
-- `TravelCard.astro` — "Transportation". Always renders. For a base it's one
-  unlabelled list of the `arrive` legs (empty state: "Nothing booked yet"),
-  plus a "Heading home" block only when `depart` legs exist (Osaka's flight
-  out). Passing `firstLabel` switches back to the labelled two-half layout —
-  `DayTripPanel` passes "Getting there & back" with There/Back.
-- `DayByDay.astro` — every day of the stay, booked or not. Free days say
-  "Free"; the first day also carries the `arrive` legs.
 - `IdeaChips.astro` — the undated stops as flat tiles, each led by a 56px
   matted thumbnail (the stop's `image`, or its category glyph on a
   tinted tile when there's no photo). Name and tile only; no body text (see
@@ -557,14 +570,17 @@ which looks exactly like "no map configured".
   label, still inside the stay's date range); **Sleeping** — reads `bands`
   — one cell per stay spanning its full days including any arrival-transit
   one, the lodging name (linked when there's a booking page) or "Not
-  booked"; **Travel** — the leg's `service` led by its mode glyph,
-  then the day's detail ("~16h →" leaving, "→ 15:00" landing), full leg
-  text as tooltip + sr-only; **Day trips** — the undated trips as dashed
+  booked"; **Travel** — the mode glyph and `~hours`, and nothing else. That
+  row answers one question, "how much of this day goes to getting there",
+  so a leg is "✈️ ~16h" on the day it starts and "→ ✈️" on the days it
+  lands in — every travel day marked, the duration said once. Service
+  codes and clock times used to sit here and made the row unreadable; the
+  full leg line survives as the tooltip and the sr-only text; **Day trips**
+  — the undated trips as dashed
   pills spanning their parent's columns, linking to their panels.
   **Quiet days draw nothing at all** — no cell, no rule, no column line:
-  the marks on the sheet are the things that happen, which is also what
-  buys the Travel row its room, since a travel block spans into the empty
-  days after it (`travelSpan`). Row hairlines therefore come from a
+  the marks on the sheet are the things that happen. Row hairlines therefore
+  come from a
   dedicated `.rule` element spanning `2 / -1`, not from per-cell borders.
   Day cells are deliberately **not** links — only bands, lodging, and
   pills are, so nothing nests. Two hard-won invariants: the grid element
@@ -578,7 +594,7 @@ which looks exactly like "no map configured".
   the page root and its static position inside a scroll container becomes
   root overflow — `.chip` and `.idea` are anchored for the same reason,
   after an unanchored one scrolled the grid off screen on a `#hash` load. **Booked reservations don't appear here** —
-  dated stops live in the city panels' Day by day.
+  dated stops live in the city panels' Booked list.
 - `src/components/StopList.astro` + `IdeaCard.astro` — the ruled row list.
   Used by `/map/<city>/` (`layout="column"`) and `/overview/`'s unscheduled
   strip (`layout="grid"`). These two keep the handwritten body line, because
@@ -626,13 +642,17 @@ default) — a deliberate omission, not a gap.
 ## Architectural rules
 
 - **Empty states are load-bearing, not placeholders.** Content arrives one
-  place at a time, so every block has to read as intentional while it's still
-  nearly empty. `StayCard` and `TravelCard` render even with nothing in them,
-  because a stay with nowhere booked that quietly hides its lodging card reads
-  as a settled one. `DayByDay` lists every day so free time is stated rather
-  than left as a gap. `IdeaChips`, `StopList`, and `.mapslot-blank` each say
-  when they're empty. Copy on the page stays user-facing — authoring guidance
-  lives here instead.
+  place at a time, so a block that's still empty has to say so rather than
+  quietly disappear and leave the trip looking settled. The grid's Sleeping
+  row says "Not booked" for every stay; `IdeaChips`, `StopList`, `CityPhoto`,
+  and `.mapslot-blank` each state their own emptiness. Copy on the page stays
+  user-facing — authoring guidance lives here instead.
+  The one deliberate exception is the panels' **Booked** list, which renders
+  only when something is booked. That isn't a softening of the rule but the
+  other half of it: the fact "nothing is booked here" is already stated out
+  loud one screen up, and a page that says it twice reads as a page with a
+  hole in it. **One honest empty state per fact** — so before adding an empty
+  state, check the grid isn't already carrying it.
 - **Two registers, and they don't mix.** The cover is the scrapbook — tape,
   tilt, handwriting, the taped photo. `/overview/` is the instrument — paper
   sheets, hairlines, uppercase micro-labels, accent tints, dashed for
@@ -644,8 +664,8 @@ default) — a deliberate omission, not a gap.
   global block. Scoped rules are (0,2,0) and always win, so a component can
   still tune one locally — see `.hero-cta`, which is `.tape` at button size.
   `.sheet-label` is the flat counterpart to `.tape` — the grid's row-label
-  voice, worn by every card header on `/overview/` — and `.label-icon` is the
-  emoji leading one (🏨 Staying at, 🚄 travel, 🗓️ Day by day, 💡 Ideas):
+  voice, worn by every section header on `/overview/` — and `.label-icon` is
+  the emoji leading one (🗓️ Booked, 💡 Ideas):
   always `aria-hidden`, and **sections wear icons, buttons don't** (the cover
   CTA stays bare, which is why `.tape` has no icon variant).
 - React islands (`Filters`, `MapSlot`) are leaves: they orchestrate static

@@ -1,5 +1,5 @@
 ---
-import type { TripCalendar, TripDayTravel } from '../lib/itinerary';
+import type { TripCalendar } from '../lib/itinerary';
 import { formatHours } from '../lib/itinerary';
 import { travelEmoji } from '../lib/travel';
 
@@ -12,20 +12,12 @@ interface Props {
 const { calendar, accentFor } = Astro.props;
 const { days, bands, cityBands, floats } = calendar;
 
-// The second line of a travel block — what this day holds of the leg. The
-// arrow points the way the day runs: "07:15 · ~16h →" is a day spent leaving,
-// "→ lands 15:00" a day that starts in the air.
-const legDetail = (t: TripDayTravel): string => {
-  if (t.role === 'arrive' || t.role === 'via') {
-    return t.lands ? `→ ${t.lands}` : '→ lands';
-  }
-  const parts: string[] = [];
-  if (t.leaves) parts.push(t.leaves);
-  if (t.hours !== undefined) parts.push(formatHours(t.hours));
-  if (t.lands) parts.push(t.lands);
-  const detail = parts.join(' · ');
-  return t.role === 'depart' ? `${detail} →` : detail;
-};
+// The one thing this row is for: how much of a day the travelling eats, and
+// by what. A leg that crosses midnight prints its hours on the day it starts
+// and a bare "→ ✈️" on the days it lands in, so every travel day is marked
+// but the duration is stated once. Everything else about the leg — service,
+// clock times, the full line — lives in the tooltip and the sr-only text.
+const isContinuation = (role: string) => role === 'arrive' || role === 'via';
 
 // Column 1 is the label rail; day i lives in column i + 2. Rows are fixed:
 // 1 dates · 2 city · 3 sleeping · 4 travel · 5+ day trips.
@@ -123,19 +115,27 @@ const FLOAT_ROW = 5;
     {
       days.map((d, i) =>
         d.travel.length > 0 ? (
-          <div
-            class="travel"
-            style={`grid-column: ${col(i)} / span ${d.travelSpan}`}
-          >
+          <div class="travel" style={`grid-column: ${col(i)}`}>
             {d.travel.map((t) => (
               <span class="leg" title={t.text}>
-                <span class="leg-service">
-                  <span class="leg-mode" aria-hidden="true">
-                    {travelEmoji(t.mode)}
-                  </span>
-                  {t.service}
+                {/* The whole visible mark is decorative: the sr-only line
+                    below says the same thing in full, and hearing "plane
+                    16 hours" ahead of it just doubles the leg. */}
+                <span class="leg-mark" aria-hidden="true">
+                  {isContinuation(t.role) ? (
+                    <Fragment>
+                      <span class="leg-cont">→</span>
+                      <span class="leg-mode">{travelEmoji(t.mode)}</span>
+                    </Fragment>
+                  ) : (
+                    <Fragment>
+                      <span class="leg-mode">{travelEmoji(t.mode)}</span>
+                      {t.hours !== undefined && (
+                        <span class="leg-hours">{formatHours(t.hours)}</span>
+                      )}
+                    </Fragment>
+                  )}
                 </span>
-                <span class="leg-detail">{legDetail(t)}</span>
                 <span class="sr-only">{t.text}</span>
               </span>
             ))}
@@ -330,9 +330,10 @@ const FLOAT_ROW = 5;
     color: #b0a68f;
   }
 
-  /* Row 4 — Travel. Only days that hold a leg draw anything; the block is
-     free to spread into the quiet days after it (grid-column span, set in
-     buildTripCalendar), which is the room the service names live in. */
+  /* Row 4 — Travel. Only days that hold a leg draw anything, and what they
+     draw is one short mark: the mode glyph and how many hours the day gives
+     up to it. One day's column is room enough for that, which is why the
+     cell no longer spreads into the quiet days after it. */
   .travel {
     grid-row: 4;
     display: flex;
@@ -342,9 +343,6 @@ const FLOAT_ROW = 5;
     padding: 0.6rem 0.35rem 0.5rem;
   }
 
-  /* A block, not a row: the glyph rides inline at the head of the service
-     name so the whole column width is text. Names wrap rather than
-     truncate — "Tokaido Shinkansen" over two lines beats "Toka…". */
   .leg {
     display: block;
     min-width: 0;
@@ -354,27 +352,31 @@ const FLOAT_ROW = 5;
     position: relative;
   }
 
+  .leg-mark {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2em;
+    min-width: 0;
+  }
+
   .leg-mode {
     font-size: 0.85rem;
-    margin-right: 0.15em;
   }
 
-  .leg-service {
-    display: block;
+  .leg-hours {
     font-weight: 700;
-    font-size: 0.68rem;
-    line-height: 1.3;
-    color: var(--ink);
-    overflow-wrap: break-word;
-  }
-
-  .leg-detail {
-    display: block;
-    font-size: 0.62rem;
+    font-size: 0.72rem;
     line-height: 1.3;
     font-variant-numeric: tabular-nums;
-    color: var(--ink-muted);
-    overflow-wrap: break-word;
+    color: var(--ink);
+  }
+
+  /* The day a crossing lands on: same glyph, no hours — the duration was
+     already stated on the day it started. */
+  .leg-cont {
+    font-size: 0.72rem;
+    line-height: 1.3;
+    color: #b0a68f;
   }
 
   /* Rows 5+ — undated day trips under their base's columns, wearing the

@@ -79,9 +79,10 @@ const defaultRule =
   </Fragment>
 
   <div class="ov-layout">
-    {/* Row one, and deliberately not a <section> and not inside <main>: the
-        hashless-load rule below matches the first <section> child of <main>,
-        so anything sectioning above the panels would silently steal it. */}
+    {/* Above the panels, and deliberately not a <section> and not inside
+        <main>: the hashless-load rule below matches the first <section> child
+        of <main>, so anything sectioning above the panels would silently
+        steal it. */}
     <div class="ov-top">
       <header class="ov-head">
         <a class="ov-back" href="/">← {TRIP_TITLE}</a>
@@ -151,22 +152,25 @@ const defaultRule =
         )
       }
 
-      {/* Inside <main> because on desktop the page itself no longer scrolls
-          (see the tab rules below) — out there it would be unreachable. In
-          here it ends whichever panel is open, and in the no-:has() fallback
-          it sits where it always did: after everything. */}
+      {/* Inside <main>, where it ends whichever panel is open — and in the
+          no-:has() fallback it sits where it always did: after everything. */}
       <Footer />
     </main>
   </div>
 </Base>
 
 <style is:global>
-  /* One city at a time, selected from the grid above. On desktop the page
-     never scrolls: the grid keeps row one and the open city's panel scrolls
-     by itself, the same frame the map pages use. It's all :target, so it
-     works with JS off, /map/<city>/'s back links land on the right city, and
-     Back/Forward walk the hash history through cities for free. Global
-     because the rules have to reach SegmentShell's .segment across scoping.
+  /* One city at a time, selected from the grid above. The document scrolls
+     normally at every width — the grid is the top of the page rather than a
+     pinned half of it, so the open panel gets the whole viewport once you've
+     scrolled past the sheet. Selecting a band reveals its panel and the
+     browser scrolls to it the way it scrolls to any :target, smoothly via
+     Base.astro's scroll-behavior (which has its own reduced-motion reset).
+
+     It's all :target, so it works with JS off, /map/<city>/'s back links land
+     on the right city, and Back/Forward walk the hash history through cities
+     for free. Global because the rules have to reach SegmentShell's .segment
+     across scoping.
 
      Everything is gated on :has() — ungated, a browser without it would drop
      only the "show the first city" rule and open to a blank panel. Gated,
@@ -189,38 +193,13 @@ const defaultRule =
     .ov-layout > main:not(:has(.segment:target)) > .segment:first-of-type {
       display: block;
     }
+  }
 
-    /* The lock is desktop-only. The grid is a third of a phone's viewport —
-       pinning it there would leave the panel a letterbox — so below 900px the
-       document scrolls normally and a band tap jump-scrolls to the panel it
-       opened. Same locked-desktop / flowing-mobile switch the map page makes.
-
-       When a hidden section becomes :target the browser applies styles before
-       scrolling it into view inside <main>, and each section sits at the
-       panel's top — so switching cities also resets the panel's scroll.
-       html's smooth scroll-behavior only governs the root scroller, which up
-       here no longer moves. */
-    @media (min-width: 901px) {
-      .ov-layout {
-        display: grid;
-        /* minmax(0, 1fr), not auto: an auto column would let the day grid's
-           16 columns widen the page instead of scrolling inside itself. */
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto minmax(18rem, 1fr);
-        height: 100svh;
-      }
-
-      /* min-height: 0 is load-bearing — without it a 1fr grid row refuses to
-         shrink below its content and the panel never scrolls (same note as
-         the map page's grid). The 18rem floor above is the other half: on a
-         very short window the wrapper overflows 100svh and the root scrolls
-         a little, rather than crushing the panel to nothing. */
-      .ov-layout > main {
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-      }
-    }
+  /* Ungated: both shapes scroll a targeted panel to the top of the viewport,
+     and both want it to land a little below the edge rather than flush
+     against it. */
+  .ov-layout > main > .segment {
+    scroll-margin-top: 0.75rem;
   }
 </style>
 
@@ -235,8 +214,8 @@ const defaultRule =
     padding: 0.9rem 0 1rem;
   }
 
-  /* One line: back, title, dates. Every pixel spent here is a pixel the open
-     panel doesn't get. */
+  /* One line: back, title, dates — so the sheet below it starts as high on
+     the page as it can. */
   .ov-head {
     display: flex;
     align-items: baseline;

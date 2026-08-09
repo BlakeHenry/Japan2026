@@ -20,10 +20,12 @@ const { id, title, titleJa, subline, accent, alt, daytrip = false } =
   Astro.props;
 ---
 
-{/* The header, then two columns: the stay itself on the left (photo,
-    lodging, how we get here), what we do with it on the right (day by day,
-    ideas). Both slots are plain flow — no sticky, no scroll-driven anything,
-    so a city is one readable block whatever its height. */}
+{/* The header, then two columns: the place on the left (its photo), what we
+    do with it on the right (anything booked, then the ideas). Both slots are
+    plain flow — no sticky, no scroll-driven anything, so a city is one
+    readable block whatever its height. The narrow left column is what holds
+    the photo to postcard scale; given the whole panel it would fill the
+    screen and push the ideas out of sight. */}
 <section
   class:list={['segment', { daytrip }]}
   id={id}
@@ -45,8 +47,8 @@ const { id, title, titleJa, subline, accent, alt, daytrip = false } =
     </header>
 
     <div class="segment-grid">
-      <div class="col col-stay">
-        <slot name="stay" />
+      <div class="col col-photo">
+        <slot name="photo" />
       </div>
       <div class="col col-plan">
         <slot name="plan" />
