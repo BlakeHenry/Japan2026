@@ -1,16 +1,24 @@
 /**
- * What's below the timeline: the selected stop or day trip, and its ideas.
+ * What's below the timeline: the selected stop or day trip.
  *
- * The mockup's pane is name + travel toggle + day-trip chips. Everything the
- * old city panels carried — lodging, the arrive/depart legs, the booked list,
- * the hero photo — is deliberately not here; those fields still live in the
- * markdown and still round-trip through export, they just aren't drawn.
+ * The pane is name + actions + day-trip chips, and that is the whole of it.
+ * The site plans SCHEDULED things — which city each day, the day trips out of
+ * it, and reservations when there are any — so there is no block here for
+ * loose ideas, and nothing to add one to.
+ *
+ * **It states no dates.** The timeline directly above is a calendar with the
+ * bar's extent drawn on it — repeating "WED OCT 14 → SAT OCT 17 · 4 DAYS"
+ * underneath only says in words what the reader can already see. A day trip's
+ * own day is the one exception, and it rides on its chip in the parent's list
+ * where it distinguishes one trip from another.
+ *
+ * Everything the old city panels carried — lodging, the arrive/depart legs,
+ * the hero photo — is deliberately not here either; those fields still live in
+ * the markdown and still round-trip through export, they just aren't drawn.
  */
 
-import type { CategoryKey } from '../../lib/categories';
-import type { IdeaHome, PlanIdea, TripDoc } from '../../lib/plan/doc';
+import type { TripDoc } from '../../lib/plan/doc';
 import { dateAt, startOf } from '../../lib/plan/doc';
-import IdeaEditor, { type IdeaTarget } from './IdeaEditor';
 
 export type Sel = { t: 's'; id: string } | { t: 't'; sid: string; ti: number };
 
@@ -20,10 +28,6 @@ interface Props {
   onSelect: (sel: Sel) => void;
   onToggleKind: (id: string) => void;
   onDeleteTrip: (sid: string, ti: number) => void;
-  onAddIdea: (home: IdeaHome, title: string, category: CategoryKey) => void;
-  onRenameIdea: (id: string, title: string) => void;
-  onMoveIdea: (id: string, home: IdeaHome) => void;
-  onDeleteIdea: (id: string) => void;
 }
 
 const WD = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -35,36 +39,8 @@ export function formatDay(iso: string): string {
   return `${WD[d.getUTCDay()]} ${MO[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
-function buildTargets(doc: TripDoc): IdeaTarget[] {
-  const targets: IdeaTarget[] = [];
-  for (const s of doc.stops) {
-    targets.push({ key: `stop:${s.id}`, label: s.name, home: { kind: 'stop', stopId: s.id } });
-    s.trips.forEach((t, i) =>
-      targets.push({
-        key: `trip:${s.id}:${i}`,
-        label: `${s.name} → ${t.name}`,
-        home: { kind: 'trip', stopId: s.id, index: i },
-      })
-    );
-  }
-  targets.push({ key: 'loose', label: '— Not on the itinerary —', home: { kind: 'loose' } });
-  return targets;
-}
-
 export default function DetailPane(props: Props) {
   const { doc, sel, onSelect } = props;
-  const targets = buildTargets(doc);
-
-  const ideaProps = (ideas: PlanIdea[], home: IdeaHome, currentKey: string, empty: string) => ({
-    ideas,
-    targets,
-    currentKey,
-    onAdd: (title: string, category: CategoryKey) => props.onAddIdea(home, title, category),
-    onRename: props.onRenameIdea,
-    onMove: props.onMoveIdea,
-    onDelete: props.onDeleteIdea,
-    emptyLabel: empty,
-  });
 
   if (sel.t === 's') {
     const index = doc.stops.findIndex((s) => s.id === sel.id);
@@ -92,12 +68,6 @@ export default function DetailPane(props: Props) {
             )}
           </h1>
         </div>
-
-        <p className="pl-pane-meta">
-          {formatDay(dateAt(doc, from))} → {formatDay(dateAt(doc, from + stop.days - 1))} ·{' '}
-          {stop.days} {stop.days === 1 ? 'DAY' : 'DAYS'}
-          {isGap && ' · NO CITY'}
-        </p>
 
         <div className="pl-pane-actions">
           <button
@@ -134,15 +104,6 @@ export default function DetailPane(props: Props) {
             </div>
           </section>
         )}
-
-        <IdeaEditor
-          {...ideaProps(
-            stop.ideas,
-            { kind: 'stop', stopId: stop.id },
-            `stop:${stop.id}`,
-            `Nothing pencilled in for ${stop.name} yet.`
-          )}
-        />
       </div>
     );
   }
@@ -151,7 +112,6 @@ export default function DetailPane(props: Props) {
   const stop = doc.stops[index];
   const trip = stop?.trips[sel.ti];
   if (!stop || !trip) return null;
-  const from = startOf(doc.stops, index);
 
   return (
     <div className="pl-pane">
@@ -163,13 +123,6 @@ export default function DetailPane(props: Props) {
         />
         <h1 className="pl-pane-title">{trip.name}</h1>
       </div>
-
-      <p className="pl-pane-meta">
-        DAY TRIP FROM {stop.name.toUpperCase()} ·{' '}
-        {trip.day === null
-          ? 'NO DAY PICKED YET — DRAG THE PILL ONTO A DAY'
-          : `${formatDay(dateAt(doc, from + trip.day))} · OUT AND BACK`}
-      </p>
 
       <div className="pl-pane-actions">
         <button type="button" className="pl-btn" onClick={() => onSelect({ t: 's', id: stop.id })}>
@@ -183,15 +136,6 @@ export default function DetailPane(props: Props) {
           DELETE DAY TRIP
         </button>
       </div>
-
-      <IdeaEditor
-        {...ideaProps(
-          trip.ideas,
-          { kind: 'trip', stopId: stop.id, index: sel.ti },
-          `trip:${stop.id}:${sel.ti}`,
-          `Nothing pencilled in for ${trip.name} yet.`
-        )}
-      />
     </div>
   );
 }

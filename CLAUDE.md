@@ -10,13 +10,19 @@ A static Astro site in three layers:
   bars that tile it end to end. Drag a bar to reorder it, drag the handle
   between two bars to move a day across, double-click to rename, `+` to insert
   a stop or hang a day trip off a day. Below the timeline, the selected stop's
-  pane: name, a travel toggle, its day trips, and its ideas.
+  pane: name, dates, a travel toggle, and its day trips.
+  **The track fills the window**, so a wide screen gets fat day columns; below
+  about 1070px it stops shrinking and scrolls sideways instead.
   **A travel day is a stop, not a flag on a day.** Insert one and mark it as
   travel; it draws hatched and exports no segment file. There is deliberately
-  no per-day toggle — one way to say a thing.
-  The window itself can grow: **← DAY AT START / DAY AT END →** under the
-  timeline lengthen the trip, which is the one edit whose export touches code
-  (`src/lib/trip.ts`) rather than content.
+  no per-day toggle — one way to say a thing. The first and last days of the
+  trip are travel stops like any other, not a special case.
+  **The site plans SCHEDULED things only** — which city we're in each day, the
+  day trips out of it, and reservations when there are any. There is no place
+  to keep loose ideas, by design.
+  **The trip's dates are fixed.** The stops tile a settled window, so a
+  boundary drag moves a day between neighbours and nothing changes the trip's
+  length. Nothing on this page writes outside `src/content/`.
   **This page is editable, and the edits are the point.** The site is static
   on GitHub Pages, so there is no backend: the working state lives in
   `localStorage`, and **EXPORT downloads the regenerated `src/content/`
@@ -26,11 +32,14 @@ A static Astro site in three layers:
   register: Sora, Space Mono, a blue accent, light-grey app chrome. The cover
   and the map pages keep the paper register, and the two never mix; every
   planner rule is namespaced `.pl-`.
-  Deliberately **not** here: lodging, the arrive/depart legs, booked
-  reservations, hero photos. Those fields still live in the markdown and still
-  survive export — nothing draws them.
+  Deliberately **not** here: lodging, the arrive/depart legs, hero photos.
+  Those fields still live in the markdown and still survive export — nothing
+  draws them.
 - **`/map/<city>/`** — one full-screen map page per city: rows on the left,
   big map on the right, the way you'd browse a saved list in Google Maps.
+  It renders the `stops` collection, which is **empty right now** — see
+  "Reservations" below — so every one of these pages currently shows its empty
+  state. That is correct, not broken.
 
 Deployed to GitHub Pages automatically on every push to `main`.
 
@@ -42,8 +51,7 @@ cities: **Tokyo** Oct 13–16 (checkout the 17th), **Kyoto** Oct 19–22
 again** for the single night of the 26th (`05-tokyo-return.md`) — the ride
 back up is the 26th and the flights home leave Haneda on the 27th. That
 return stay is the site's one **repeat city**: it slugs `tokyo-2`, and the
-ideas and day trips all stay with the first Tokyo (see "Coming back to a
-city" below).
+day trips all stay with the first Tokyo (see "Coming back to a city" below).
 
 **Oct 17–18 is an open gap, not a segment.** Kiso Valley was pencilled
 there and got pulled off the itinerary — no replacement is decided, so
@@ -52,16 +60,10 @@ shows them as a hatched travel bar until something is chosen. `03-kyoto.md`
 lost the
 `arrive` legs that used to route through it (Nagiso, on the old Kiso Valley
 line) for the same reason: the actual path from Tokyo to Kyoto is unchosen
-again. **Kawaguchiko
-is one candidate**, pencilled as a plain undated-but-dated stop
-(`src/content/stops/kawaguchiko.md`, `date: 2026-10-18`) rather than a
-segment — it has no city to attach to, so it (and the five orphaned Kiso
-Valley ideas below) surface in the **"Not on the itinerary yet"** block under
-the planner's pane, and
-warn at build time. That is the intended behavior, not a bug: a pencilled
-idea without a committed segment is supposed to be visible, not silently
-dropped. Dropping one onto a stop from there is a two-click job now, and
-export rewrites its `city`.
+again. **Kawaguchiko is one candidate**, and it is currently written down
+nowhere — it used to be a pencilled stop file, which went when ideas did.
+When it's chosen it becomes what any decided place is: a stop on the
+timeline over those two days, named on the bar and exported as a segment.
 
 **Blake lands at 3pm on Oct 13**, so that day is largely spoken for by
 getting to the hotel and dinner. Nothing on the site says so right now: it
@@ -91,20 +93,17 @@ or reservations to make the page look fuller, and don't add or change
 transit legs nobody chose.** Everything on the site should be something a
 person actually chose.
 
-The stops that exist are the five Jameson added (`addedBy: Jameson`) —
-three Pokémon / TCG stops in Osaka, two in Kyoto — plus five researched
-Kiso Valley ideas (the Magome→Tsumago Nakasendo walk, Tsumago-juku,
-Narai-juku, Nezame-no-toko gorge, Kozenji's rock garden) and the pencilled
-Kawaguchiko stop. The five Kiso Valley ideas and Kawaguchiko currently
-**render only in the "Not on the itinerary yet" block**, since Kiso Valley
-has no segment right now — that block is not empty at the moment. The
-Jameson stops still attach to their city's segment normally. Tokyo has no
-stops, so its Ideas block shows its empty state. Every current stop has a
-thumbnail in `src/assets/stops/` except Kawaguchiko — **nothing renders those
-thumbnails today** (the planner drew photos out of the panel), so they and
-the segment hero photos sit unused, kept because the fields and the files are
-still right and a photo view may come back. Same for the unused
-`src/assets/segments/kiso-valley.jpg`, in case a Kiso Valley segment does.
+**`src/content/stops/` is empty.** It used to hold eleven pencilled places —
+five Jameson added (`addedBy: Jameson`; three Pokémon / TCG stops in Osaka,
+two in Kyoto), five researched Kiso Valley ideas (the Magome→Tsumago
+Nakasendo walk, Tsumago-juku, Narai-juku, Nezame-no-toko gorge, Kozenji's
+rock garden), and the pencilled Kawaguchiko stop. All eleven were deleted
+when the site narrowed to scheduled things only; `git log` has them, and
+their thumbnails are still in `src/assets/stops/`. **Nothing renders those
+thumbnails** — the planner drew photos out of the panel long before this —
+and the same is true of the segment hero photos and the unused
+`src/assets/segments/kiso-valley.jpg`. All of it is kept because the fields
+and the files are still right and a photo view may come back.
 
 The trip window (Oct 12–27 2026) lives in
 [`src/lib/trip.ts`](src/lib/trip.ts), as a code constant rather than content
@@ -115,85 +114,78 @@ timeline seeds them as `gap` bars ("In transit" / "Heading home"). Segments
 are legs carved out of that window, and the build warns if one falls outside
 it.
 
-The timeline's stops **tile the window exactly**, so dragging a boundary moves
-a day between neighbours and never changes the trip's length. Lengthening it
-is its own action — the **← DAY AT START / DAY AT END →** controls — and the
-new day joins whichever stop is already at that end (normally a travel gap,
-which is usually what an extra day at either end is). Those are the only
-edits that rewrite `trip.ts`; export does it by regex over the two
-`Date.UTC(...)` calls, and `pnpm plan:apply` allows that one path and no
-other code file. **There is no shortening**: dropping a day has to decide
-which day, and that's a `trip.ts` edit made deliberately.
+**The window is fixed, and only a human editing `trip.ts` changes it.** The
+timeline's stops tile it exactly, so dragging a boundary moves a day between
+neighbours and never changes the trip's length. There used to be
+**← DAY AT START / DAY AT END →** controls that grew the window, and an
+export path that rewrote the two `Date.UTC(...)` calls to match; both are
+gone, along with `trip.ts` from `pnpm plan:apply`'s allowlist. **No export
+touches code any more** — a plan bundle names `src/content/**.md` and
+nothing else. If the dates ever do move, edit `trip.ts`, and the stops at
+whichever end has to absorb the change are the travel gaps.
 
-## How to add a trip stop (the most common task)
+## Reservations
 
-One markdown file in `src/content/stops/` per place. Copy this template,
-delete the optional lines you don't need, and run `pnpm build` to
-validate:
+There are none yet, and there is no other kind of stop. `src/content/stops/`
+holds **dated reservations only** — a dinner booking, a timed ticket — and it
+is empty, so `pnpm build` warns twice about an empty collection. That warning
+is the honest state of things, not a fault to fix.
+
+Undated stops ("ideas") were how most of this site's content used to work.
+They are gone on purpose: the site plans where we'll be each day, the day
+trips out of each base, and reservations. A place nobody has committed to
+belongs in a notes app, not here.
+
+When the first reservation lands, one markdown file in `src/content/stops/`:
 
 ```markdown
 ---
-title: Blue Bottle Kiyosumi          # required
-city: Tokyo                          # required — must exactly match a segment's city
-category: coffee                     # required — see valid keys below
-date: 2026-10-15                     # optional — ONLY for booked reservations
+title: Den                           # required
+city: Tokyo                          # required — must match the segment's city
+category: food                       # required — see valid keys below
+date: 2026-10-15                     # REQUIRED — this is what makes it a reservation
 time: "19:00"                        # optional — 24h "HH:MM", quotes required
-link: https://example.com/           # optional — official site / booking page
+link: https://example.com/           # optional — booking page
 lat: 35.6812                         # optional — see "Coordinates" below
 lng: 139.7671                        # optional — pairs with lat
-image: ../../assets/stops/foo.jpg    # optional — chip thumbnail, ~640px source
+image: ../../assets/stops/foo.jpg    # optional — ~640px source
 ---
 
-One or two short sentences. **No markdown links in the body** (see the rules
-below).
+One or two short sentences. **No markdown links in the body** (see below).
 ```
 
 Rules:
 
-- **No `date` → the stop is an idea**: it becomes a chip in its city's Ideas
-  block. This is the default and the norm.
-- **With `date` → the stop is a scheduled event**: it appears in its city
-  panel's **Booked** list, never among the idea chips. Only use `date` for
-  actual bookings (dinner reservations, timed tickets). That list is the one
-  block on a panel that isn't always drawn — with nothing booked there's no
-  heading at all.
-- **Dated stops attach by date, not by city.** A booked stop lands in
+- **Always set `date`.** A stop without one is an idea, and ideas have no home
+  on this site — it would land in the unscheduled residue, warn at build time,
+  and render nowhere anybody looks.
+- **Dated stops attach by date, not by city.** A reservation lands in
   whichever segment its `date` falls inside; its `city` is only checked so
   the build can warn you when the two disagree. Read the build output.
-- Stops whose `city`/`date` match no segment show up in the **"Not on the
-  itinerary yet"** strip, and warn at build time, rather than silently
-  vanishing.
-- **A stop's body text does not appear on its city panel.** An idea chip is a
-  thumbnail tile (the stop's `image`, or its category glyph when there's no
-  photo) plus the name — no body text, by design. Bodies render on
-  `/map/<city>/` and in the unscheduled strip, both of which use `IdeaCard`.
-  Write the body as a note to your future self, not as the thing that sells
-  the stop.
+- **The planner does not draw reservations yet.** They round-trip through
+  nothing — `TripDoc` has no node for them — so the planner's EXPORT neither
+  writes nor deletes a stop file. Edit these by hand. Wiring them into the
+  pane is the obvious next piece of work.
+- **They do render on `/map/<city>/`**, which is the only page that reads the
+  `stops` collection at all.
 - **No markdown links in a stop's body.** Wherever a body renders, the whole
   row is an `<a>`, and a nested link is invalid HTML — the parser unnests it,
   which lifts the row out of its city section and silently kills that row's
   map-pin highlighting and filtering. Put the URL in `link:` instead.
 - Do NOT add frontmatter fields beyond the template — the schema in
-  `src/content.config.ts` is intentionally minimal. Extra keys are **stripped
-  by zod**, so nothing reads them; they do survive in the file, because the
-  planner's export edits raw text rather than re-serializing (`addedBy:
-  Jameson` is the one that exists, on five stops).
-- **You can add a stop from `/overview/` instead**, and for a bare
-  name + category that is faster: type it into the pane's Ideas block, then
-  EXPORT and `pnpm plan:apply`. A browser-made stop has no coordinates, no
-  image and no body — a browser can't mint an `ImageMetadata` — so fill those
-  in here afterwards.
+  `src/content.config.ts` is intentionally minimal, and extra keys are
+  **stripped by zod**, so nothing reads them.
 
 ### Coordinates are what light up the maps
 
 `lat`/`lng` are optional, but they're the single highest-value thing you can
-add to a stop: the stop gets a pin on the city's map page, and its chip opens
+add to a stop: the stop gets a pin on the city's map page, and its row opens
 Google Maps instead of the venue's website.
 
 To get a coordinate: right-click the spot in Google Maps and the `lat, lng`
 is the first item in the menu — click to copy.
 
-### What a chip or row links to
+### What a row links to
 
 One target, in this order:
 
@@ -203,28 +195,26 @@ One target, in this order:
 
 So a stop with **both** coordinates and a `link` opens Maps, not the site —
 on the day, "where is it" beats "what are its hours", and the venue's site is
-one tap away inside Maps. Booked stops keep their `link` on their Booked
-row regardless.
+one tap away inside Maps.
 
 Valid `category` keys (defined in `src/lib/categories.ts`):
 `coffee food bar market shop temple shrine museum view walk hike onsen
 sight activity stay travel`
 
-The category picks the chip glyph, the map-pin glyph, and — on
-`/map/<city>/` only — which filter button matches the stop: **Coffee** =
-coffee · **Food** = food, bar, market · **Sights** = temple, shrine, museum,
-view, walk, hike, onsen, sight, activity · **Shops** = shop. (`travel` and
-`stay` only appear under "All".)
+The category picks the map-pin glyph and — on `/map/<city>/`, the only page
+that draws a stop — which filter button matches it: **Coffee** = coffee ·
+**Food** = food, bar, market · **Sights** = temple, shrine, museum, view,
+walk, hike, onsen, sight, activity · **Shops** = shop. (`travel` and `stay`
+only appear under "All".)
 
-A stop may carry an optional `image` — a small thumbnail (~640px source in
-`src/assets/stops/`) rendered only on its idea chip. Segments still own the
-hero photo (`heroImage`).
+A stop may carry an optional `image` (~640px source in `src/assets/stops/`).
+**Nothing renders it today**, the same as segment `heroImage`.
 
 ## Trip segments (one file per contiguous stay)
 
 Each leg is one markdown file in `src/content/segments/` (e.g.
-`01-tokyo.md`). Segments drive `/overview/`: one city panel per segment, and
-stops attach by `city` (ideas) or `date` (booked).
+`01-tokyo.md`). Segments drive `/overview/`: one bar on the timeline per
+segment, and one pane per bar.
 
 ```markdown
 ---
@@ -311,24 +301,23 @@ same `city`**, and two rules make it work:
   map routes. (The planner's own `#hash` is `citySlug(name)`, so two Tokyos
   share one hash and a deep link opens the first — acceptable, since the hash
   exists for the map pages' back links.)
-- **Only the first stay in a city claims its stuff.** Ideas and day trips
-  attach there; a return stay shows an empty Ideas block and no day trips
-  on purpose. Otherwise every idea would exist twice and the duplicated
-  day trips would collide on their own slugs. The planner lets you drop an
-  idea on a return stay anyway — export **warns** that it will render on the
-  first stay instead, rather than silently moving it.
+- **Only the first stay in a city claims its stuff.** Day trips attach there;
+  a return stay shows none on purpose, or the duplicated trips would collide
+  on their own slugs. The planner lets you drag a day trip onto a return stay
+  anyway — export **warns** that it will render on the first stay instead,
+  rather than silently moving it.
 
-Dated stops still attach by date, so a booked stop on the return night lands
+Reservations still attach by date, so one booked on the return night lands
 in the return stay, which is correct.
 
 ## Day trips (one file per outing)
 
 A day trip is a **sub-location of a base**: one markdown file in
 `src/content/daytrips/`, drawn on the timeline as a pill hanging off a day of
-its parent by a connector, and — when selected — a pane of its own: name, the
-day it's pencilled for, and its ideas. Solid connector when it has a `date`,
-dashed when it doesn't. Drag the pill to another day to re-date it, or onto
-another city's days to re-parent it; both are written on export.
+its parent by a connector, and — when selected — a pane of its own: name and
+the day it's pencilled for. Solid connector when it has a `date`, dashed when
+it doesn't. Drag the pill to another day to re-date it, or onto another
+city's days to re-parent it; both are written on export.
 
 ```markdown
 ---
@@ -342,9 +331,9 @@ date: 2026-10-24        # optional — the day this outing is pencilled for.
                         # on /overview/ sets this.
 cityJa: "姫路・神戸"     # optional — joins the same derived font subset
 note: one day, castle then harbour   # optional — renders where a base shows dates
-cities:                 # optional — stop-matching keys for a combined outing;
-  - Himeji              # defaults to [name], so single-town trips omit it
-  - Kobe
+cities:                 # optional — the towns a combined outing covers, and
+  - Himeji              # the keys its stops match on. Defaults to [name], so
+  - Kobe                # single-town trips omit it
 there:                  # optional — how we get there, same leg shape as arrive
   - mode: train
     text: Shinkansen · Shin-Osaka → Himeji · 30m
@@ -359,14 +348,11 @@ Free-form notes, shown at the end of the panel.
 
 Rules:
 
-- An undated stop whose `city` matches one of the trip's matching keys
-  (`cities`, else `name`) becomes an idea on the day-trip pane instead
-  of the unscheduled block. Don't use a segment's city as a matching key —
-  the segment claims those stops first, and the build warns if you try.
 - A combined outing ("Himeji + Kobe") is **one file**, because it's one
-  pencilled day — `cities` is how both towns' stops find it. Renaming such a
-  trip does **not** rewrite `cities`; renaming one without `cities` does
-  retarget it, since its name is what its stops match on.
+  pencilled day. Renaming such a trip does **not** rewrite `cities`; renaming
+  one without `cities` does retarget it, since its name is what stops match
+  on. Don't use a segment's city as a matching key — the segment claims those
+  stops first, and the build warns if you try.
 - Deliberately no lodging — we sleep at the base. `date` is the day it's
   pencilled for, not a booking; an actual reservation is still a dated stop.
 - Every section slug (`citySlug` of segment cities and day-trip names)
@@ -389,23 +375,26 @@ that gap:
    `===== DELETED: <path> =====` lines and any warnings.
 4. **Apply.** `pnpm plan:apply <file>` writes the bundle back onto disk.
    Then `pnpm build` to validate. It refuses any path outside
-   `src/content/**.md` and `src/lib/trip.ts`, because the bundle is a
-   downloaded file.
+   `src/content/**.md`, because the bundle is a downloaded file.
 
-`src/lib/trip.ts` is in that list because the trip window is the one editable
-thing that isn't content — it's code so the dates survive an empty itinerary
-— and the timeline can lengthen the trip. Export rewrites its two
-`Date.UTC(...)` calls and **warns** when it does, since a content bundle
-quietly carrying a code change is worth a second look.
+The allowlist used to include `src/lib/trip.ts`, for the one edit that
+lengthened the trip. The dates are fixed now, so **no bundle names a code
+file** and the allowlist is content-only.
+
+The plan document covers **segments and day trips**. Reservations
+(`src/content/stops/`) are not in it, so a bundle never writes or deletes
+one — which also means the round-trip assertion below has nothing to say
+about them.
 
 Three things hold this together, and breaking any of them loses data:
 
 - **The document carries raw file text, not parsed values.** Each node keeps
   its source file's frontmatter block and body verbatim, and export re-sets
   only the handful of keys the editor owns. Re-emitting frontmatter from
-  `entry.data` would silently drop unknown keys — `addedBy: Jameson` is on
-  five stop files and isn't in the schema, so **zod strips it** — along with
-  comments and authored formatting.
+  `entry.data` would silently drop unknown keys — **zod strips** anything
+  outside the schema — along with comments and authored formatting. Lodging,
+  the arrive/depart legs and the hero photo all survive this way, and none of
+  them is drawn.
 - **A key set to the value it already has is a byte-level no-op**, so an
   untouched file exports identical. Which means dates must be written bare
   (`start: 2026-10-13`) the way they're authored, not quoted the way
@@ -424,10 +413,15 @@ is what "In transit" and the open Oct 17–18 stretch already mean in the
 content model. The pane's travel toggle flips a stay to a gap and back; a stay
 that becomes a gap has its segment file deleted.
 
-Ideas match their home by **city name**, so renaming a stop re-homes its
-ideas on export. An idea on a day trip keeps its authored town when that town
-is one of the trip's `cities` — otherwise "Himeji + Kobe" would rewrite both
-towns' stops to a city that matches neither.
+Day trips name their base by **city name**, so renaming a stop re-parents its
+day trips on export.
+
+**`localStorage` is versioned** (`japan2026-plan-v2`). Bump the suffix in
+`doc.ts` whenever `TripDoc`'s shape changes, or a stored document restores
+edits the current editor can't express — v1 carried loose ideas and a movable
+window, and both are gone. The island also refuses a stored document whose
+window doesn't match the committed one, so a `trip.ts` edit can't be masked
+by old local state.
 
 ## Commands
 
@@ -516,14 +510,14 @@ which looks exactly like "no map configured".
   survived is the **hash contract** — `/map/<city>/` still links back to
   `/overview/#<city>`, and the island honours an incoming hash on mount and
   keeps it current with `history.replaceState`. Don't break it.
-- `src/pages/map/[city].astro` — one full-screen map page per segment: rows on
-  the left (booked first, then ideas), big map on the right, back link to
-  `/overview/#<city>`. `getStaticPaths` passes only the trip-wide segment
-  index, which is also what `accentFor()` keys off so the accent matches the
-  panel. **Nothing currently links here** — the map preview card was dropped
-  in an earlier redesign. The pages still build and are the only place a
-  stop's body text and the category filters appear. The back link to
-  `/overview/#<city>` doubles as tab selection: it opens that city's panel.
+- `src/pages/map/[city].astro` — one full-screen map page per segment: stop
+  rows on the left, big map on the right, back link to `/overview/#<city>`.
+  `getStaticPaths` passes only the trip-wide segment index, which is also what
+  `accentFor()` keys off so the accent matches the panel. **Nothing currently
+  links here** — the map preview card was dropped in an earlier redesign — and
+  with no reservations booked, every one of these pages is its empty state.
+  It is still the only page that reads the `stops` collection, renders a
+  stop's body text, or draws the category filters.
 - `src/pages/404.astro` — GitHub Pages serves this for unmatched paths
 
 ### Lib
@@ -535,10 +529,13 @@ which looks exactly like "no map configured".
   colors, derives the kanji subset for the Japanese face, and warns when a
   segment falls outside the trip window
 - `src/lib/itinerary.ts` — splits stops into `ideas` (undated) / `booked`
-  (dated) per segment, and attaches day trips to their parent (each with its
-  own claimed ideas); `stopSlug`/`stopDomId` sanitize collection ids for DOM
-  use (ids can contain slashes); `mapPoints` serializes stops for the map
-  island. `citySlug` is the single source for a city's or day trip's anchor,
+  (dated) per segment, and attaches day trips to their parent; `stopSlug`/
+  `stopDomId` sanitize collection ids for DOM use (ids can contain slashes);
+  `mapPoints` serializes stops for the map island. The `ideas` bucket and the
+  `unscheduled` residue still exist here because the map pages and the
+  build-time warnings are written in terms of them — with `src/content/stops/`
+  empty, both are simply empty, and a future reservation lands in `booked`.
+  `citySlug` is the single source for a city's or day trip's anchor,
   `<section id>`, island `segmentId`, and `/map/<city>/` route param — they
   must all agree. It strips punctuation ("Himeji + Kobe" → `himeji-kobe`)
   because a `+` in an id would break the generated `:has()` CSS, and
@@ -565,14 +562,15 @@ which looks exactly like "no map configured".
 
 - `doc.ts` — the `TripDoc` type and every mutation, as **pure functions**
   returning a new document (`resize`, `reorder`, `insertAt`, `deleteStop`,
-  `renameStop`, `toggleKind`, `extendWindow`, `addTrip`/`moveTrip`/
-  `deleteTrip`/`renameTrip`, and the idea CRUD). The interaction layer stays a
-  thin shell over these, so the logic is testable without a DOM — and call
-  them through `commitDoc`'s **updater** form wherever the result isn't
-  needed, or two commits landing before the next render drop the first. Also
-  the day arithmetic: `toDayNumber`/`fromDayNumber` keep everything in UTC, and
-  `hashDoc` digests only the content-derived parts (never hue or ids, so a
-  rebuild doesn't read as a content change).
+  `renameStop`, `toggleKind`, and `addTrip`/`moveTrip`/`deleteTrip`/
+  `renameTrip`). The interaction layer stays a thin shell over these, so the
+  logic is testable without a DOM — and call them through `commitDoc`'s
+  **updater** form wherever the result isn't needed, or two commits landing
+  before the next render drop the first. Also the day arithmetic:
+  `toDayNumber`/`fromDayNumber` keep everything in UTC, and `hashDoc` digests
+  only the content-derived parts (never hue or ids, so a rebuild doesn't read
+  as a content change). **Nothing here writes `window`** — the trip's dates
+  are fixed, and no mutation may start changing that quietly.
   Anything that shrinks a stop must call `clampToLength`, or a day trip keeps
   a `day` past the end of its parent and silently stops rendering.
 - `seed.ts` — the committed content as a `TripDoc`, at build time. Runs of
@@ -590,13 +588,22 @@ which looks exactly like "no map configured".
   runtime is React underneath, so its `state` became the `TripDoc` and its
   bindings became ordinary props.
   Drag handlers attach their listeners to **`window`**, not the element — the
-  pointer leaves a 76px bar constantly — and read the live document through a
-  ref, because they outlive the render that created them.
-- `DetailPane.tsx` / `IdeaEditor.tsx` — the pane below, and the ideas block.
-  Re-assignment is a `<select>` rather than a drag: an idea can move to any
-  stop or day trip on the timeline, most of them off-screen behind a
-  horizontal scroll, and a drop target you have to scroll to find is worse
-  than a list you can read.
+  pointer leaves a one-day-wide bar constantly — and read the live document,
+  stop order and day width through refs, because they outlive the render that
+  created them.
+  **A day is worth `trackW / total` pixels, not a constant.** A `ResizeObserver`
+  on `.pl-scroll` measures its content box, the track takes that width exactly,
+  and `MIN_TRACK` (1000px) is the floor below which the days stop shrinking and
+  the track scrolls instead. Measuring the content box is what keeps it stable:
+  it excludes the gutters and doesn't grow with the track it scrolls, so a
+  wider track can't feed back into the measurement. `ppd` is deliberately
+  fractional — rounding it leaves a ragged strip at the right edge.
+  A boundary's `+` is revealed by `.pl-handle`'s own hover, so the handle's
+  box has to **contain** it — it reaches 28px above the bars via `padding-top`
+  for exactly that reason. Move the button out of that box and it vanishes the
+  instant you reach for it.
+- `DetailPane.tsx` — the pane below: name, dates, the travel toggle, and the
+  day-trip chips. `IdeaEditor.tsx` sat beside it and is gone with ideas.
 
 ### Shared components
 
@@ -607,8 +614,9 @@ which looks exactly like "no map configured".
   body renders. `StopList` owns the `stopContent` lookup and the empty state.
   The row element **is** the `<a>`; non-linking rows are an
   `<article tabindex="-1">` so the map can still focus them.
-  `layout="grid"` has no consumer since the unscheduled strip moved into the
-  planner; it stays because it costs nothing and the strip may want it back.
+  `layout="grid"` has no consumer at all now; it stays because it costs
+  nothing. `IdeaCard` is named for a concept the site dropped — it draws any
+  stop row, and today that means reservations.
 - `src/components/Filters.tsx` / `FilterBar.astro` — React island filtering
   `IdeaCard` rows, used only on `/map/<city>/`. `FilterBar` carries the
   island's CSS in an `is:global` block, because island DOM sits outside
@@ -656,10 +664,10 @@ default) — a deliberate omission, not a gap.
 
 - **Empty states are load-bearing, not placeholders.** Content arrives one
   place at a time, so a block that's still empty has to say so rather than
-  quietly disappear and leave the trip looking settled. The planner's Ideas
-  block says what nothing-pencilled-in looks like; `StopList` and
-  `.mapslot-blank` each state their own emptiness. Copy on the page stays
-  user-facing — authoring guidance lives here instead.
+  quietly disappear and leave the trip looking settled. `StopList` and
+  `.mapslot-blank` each state their own emptiness — which is the whole of
+  `/map/<city>/` right now, with no reservations booked. Copy on the page
+  stays user-facing — authoring guidance lives here instead.
   **One honest empty state per fact** — before adding one, check something a
   screen up isn't already carrying it. On the planner an empty stretch of
   days is *already* a mark (a hatched TRAVEL bar), so it needs no caption.

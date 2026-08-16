@@ -87,14 +87,6 @@ const { seed } = Astro.props;
     letter-spacing: -0.02em;
   }
 
-  .pl-meta {
-    margin: 0;
-    font-family: var(--pl-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    color: var(--pl-ink-mute);
-  }
-
   .pl-head-actions {
     margin-left: auto;
     display: flex;
@@ -325,10 +317,16 @@ const { seed } = Astro.props;
     box-shadow: 0 1px 3px rgba(20, 24, 35, 0.2);
   }
 
+  /* The box reaches 28px ABOVE the bars, because the `+` lives up there and
+     the handle's own mouseleave is what hides it — a button outside the box it
+     is revealed by vanishes the moment you move towards it. The padding does
+     the reaching: `align-items: center` centres the grip in the CONTENT box,
+     so the grip stays on the bar while the hover region covers both. */
   .pl-handle {
     position: absolute;
-    top: 0;
+    top: -28px;
     bottom: 0;
+    padding-top: 28px;
     width: 20px;
     z-index: 30;
     cursor: ew-resize;
@@ -359,8 +357,11 @@ const { seed } = Astro.props;
     padding: 0;
   }
 
+  /* 4px into the handle's padding — absolute offsets are from the padding box,
+     so this is the same place on screen it always was, now inside the hover
+     region rather than 24px above it. */
   .pl-handle-add {
-    top: -24px;
+    top: 4px;
     width: 20px;
     height: 20px;
     background: var(--pl-accent);
@@ -431,41 +432,14 @@ const { seed } = Astro.props;
     color: #2a2f3a;
   }
 
-  /* --- Trip length ------------------------------------------------------- */
-
-  .pl-window {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 36px;
-    background: var(--pl-raised);
-    border-bottom: 1px solid var(--pl-line);
-  }
-
-  .pl-window-meta {
-    font-family: var(--pl-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--pl-ink-faint);
-  }
-
   /* --- Below the fold ---------------------------------------------------- */
 
   .pl-below {
     padding: 32px 44px 64px;
   }
 
-  .pl-pane,
-  .pl-loose {
+  .pl-pane {
     max-width: 640px;
-  }
-
-  .pl-loose {
-    margin-top: 48px;
-    border-top: 1px solid var(--pl-line);
-    padding-top: 24px;
   }
 
   .pl-pane-head {
@@ -499,14 +473,6 @@ const { seed } = Astro.props;
     font-size: 18px;
     font-weight: 400;
     color: var(--pl-ink-faint);
-  }
-
-  .pl-pane-meta {
-    margin: 10px 0 0;
-    font-family: var(--pl-mono);
-    font-size: 12px;
-    letter-spacing: 0.05em;
-    color: var(--pl-ink-mute);
   }
 
   .pl-pane-actions {
@@ -575,148 +541,10 @@ const { seed } = Astro.props;
     color: #a7adba;
   }
 
-  /* --- Ideas ------------------------------------------------------------- */
-
-  .pl-ideas {
-    list-style: none;
-    margin: 12px 0 0;
-    padding: 0;
-  }
-
-  .pl-idea {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--pl-line-soft);
-  }
-
-  .pl-idea-glyph {
-    font-size: 15px;
-    flex: none;
-  }
-
-  .pl-idea-title {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--pl-sans);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--pl-ink);
-    background: none;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 4px 6px;
-  }
-
-  .pl-idea-title:hover {
-    border-color: var(--pl-line);
-  }
-
-  .pl-idea-title:focus {
-    outline: none;
-    background: #fff;
-    border-color: var(--pl-accent);
-  }
-
-  .pl-idea-booked {
-    font-family: var(--pl-mono);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    color: var(--pl-accent-deep);
-    background: #fff;
-    border: 1px solid var(--pl-line);
-    border-radius: 999px;
-    padding: 3px 8px;
-    flex: none;
-  }
-
-  .pl-idea-move,
-  .pl-idea-new select {
-    font-family: var(--pl-mono);
-    font-size: 10px;
-    letter-spacing: 0.04em;
-    color: var(--pl-ink-mute);
-    background: #fff;
-    border: 1px solid var(--pl-line);
-    border-radius: 6px;
-    padding: 4px 6px;
-    max-width: 11rem;
-  }
-
-  .pl-idea-del {
-    width: 20px;
-    height: 20px;
-    flex: none;
-    border-radius: 50%;
-    background: #fff;
-    border: 1px solid #d6dae2;
-    color: #8a91a0;
-    font-size: 13px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-  }
-
-  .pl-idea-del:hover {
-    color: #d43a3a;
-    border-color: #e3a3a3;
-  }
-
-  .pl-idea-new {
-    display: flex;
-    gap: 8px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-
-  .pl-idea-new input {
-    flex: 1;
-    min-width: 12rem;
-    font-family: var(--pl-sans);
-    font-size: 13px;
-    color: var(--pl-ink);
-    background: #fff;
-    border: 1px solid var(--pl-edge);
-    border-radius: 8px;
-    padding: 8px 10px;
-  }
-
-  .pl-idea-new input:focus {
-    outline: none;
-    border-color: var(--pl-accent);
-  }
-
-  .pl-idea-new button {
-    font-family: var(--pl-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: #fff;
-    background: var(--pl-accent);
-    border: 1px solid var(--pl-accent);
-    border-radius: 8px;
-    padding: 8px 16px;
-    cursor: pointer;
-  }
-
-  .pl-idea-new button:disabled {
-    background: #fff;
-    color: var(--pl-ink-faint);
-    border-color: var(--pl-line);
-    cursor: default;
-  }
-
   @media (max-width: 700px) {
     .pl-head,
-    .pl-banner {
-      padding-inline: 18px;
-    }
-
+    .pl-banner,
     .pl-scroll,
-    .pl-window {
-      padding-inline: 18px;
-    }
-
     .pl-below {
       padding-inline: 18px;
     }

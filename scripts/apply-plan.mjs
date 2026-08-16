@@ -31,13 +31,13 @@ if (!bundlePath) {
 }
 
 /**
- * Only content markdown, plus the one code file the planner can legitimately
- * rewrite: `src/lib/trip.ts` holds the trip window, and lengthening the trip
- * has to land somewhere. Everything else is refused — the bundle is a
- * downloaded file, and a path like `../../.ssh/config` in it must not escape
- * the repo, however it got there.
+ * Content markdown and nothing else. The planner used to be able to lengthen
+ * the trip, which meant rewriting `src/lib/trip.ts`; the dates are fixed now,
+ * so no bundle has any business naming a code file. Everything outside this is
+ * refused — the bundle is a downloaded file, and a path like `../../.ssh/config`
+ * in it must not escape the repo, however it got there.
  */
-const WRITABLE = [/^src\/content\/[A-Za-z0-9._/-]+\.md$/, /^src\/lib\/trip\.ts$/];
+const WRITABLE = [/^src\/content\/[A-Za-z0-9._/-]+\.md$/];
 
 function safeTarget(path) {
   if (path.includes('..') || !WRITABLE.some((re) => re.test(path))) {

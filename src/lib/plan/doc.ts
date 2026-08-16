@@ -11,21 +11,24 @@
  * (3) is the demanding one. Anything the editor can't see still has to survive
  * a round trip, so every node keeps the raw text of the file it came from (see
  * `SourceFile`) rather than a projection of it. Re-emitting frontmatter from
- * parsed values would quietly drop unknown keys — `addedBy: Jameson` sits in
- * five stop files today and isn't in the schema, so zod strips it — along with
- * comments and formatting.
+ * parsed values would quietly drop unknown keys — zod strips anything outside
+ * the schema — along with comments and authored formatting. That is most of
+ * what a segment or day-trip file holds: lodging, the arrive/depart legs, the
+ * hero photo. None of it is drawn; all of it survives.
  *
  * Dates are `YYYY-MM-DD` strings everywhere, and day arithmetic goes through
  * `toDayNumber`/`fromDayNumber` so it stays in UTC. Never `new Date('2026-10-13')`
  * arithmetic in local time: it shifts the day for anyone west of Greenwich.
  */
 
-import type { CategoryKey } from '../categories';
-
 export const DAY_MS = 86_400_000;
 
-/** The localStorage key. Bump the suffix when TripDoc's shape changes. */
-export const STORAGE_KEY = 'japan2026-plan-v1';
+/**
+ * The localStorage key. Bump the suffix when TripDoc's shape changes — v1
+ * carried loose ideas and a movable window, and neither exists any more, so a
+ * v1 document would restore edits this editor can no longer express.
+ */
+export const STORAGE_KEY = 'japan2026-plan-v2';
 
 /** Days since the epoch, in UTC. The timeline's whole coordinate system. */
 export function toDayNumber(iso: string): number {
@@ -71,7 +74,6 @@ export interface PlanStop {
   /** Golden-angle hue, so a new stop never collides with its neighbours. */
   hue: number;
   trips: PlanDayTrip[];
-  ideas: PlanIdea[];
 }
 
 export interface PlanDayTrip {
@@ -83,57 +85,31 @@ export interface PlanDayTrip {
   /**
    * The `city` values this trip claims stops by — its `cities` when authored
    * (a combined outing like "Himeji + Kobe" spans two towns), else its name.
-   * Export needs it to know whether an idea's `city` still matches.
+   * Carried, never edited: a rename has to leave an authored `cities` alone.
    */
   matchKeys: string[];
   /** True when `cities` was authored, so a rename must not overwrite it. */
   explicitCities: boolean;
-  ideas: PlanIdea[];
-}
-
-export interface PlanIdea {
-  id: string;
-  source?: SourceFile;
-  title: string;
-  /**
-   * The `city` currently written in the file — the seeded value, never
-   * mutated. Export compares it against the bucket this idea now sits in and
-   * rewrites the key only when the two disagree, so an untouched stop exports
-   * byte-identical.
-   */
-  city: string;
-  category: CategoryKey;
-  /** Present ⇒ this is a booking, not an idea. Carried, never shown. */
-  date?: string;
-  time?: string;
-  link?: string;
-  lat?: number;
-  lng?: number;
-  /** The RAW authored path — `ImageMetadata` can't be minted in a browser. */
-  imagePath?: string;
 }
 
 export interface TripDoc {
   version: 1;
-  /**
-   * `src/lib/trip.ts` verbatim. The trip window is code, not content — it has
-   * to survive an empty itinerary — but the timeline can still lengthen the
-   * trip, so export rewrites the two `Date.UTC(...)` calls in this text.
-   */
-  windowSource?: { path: string; text: string };
   /**
    * Hash of the build-time seed this document was branched from. When the
    * committed content moves on, a stored document's hash no longer matches
    * and the island can say so instead of silently masking the new plan.
    */
   baseHash: string;
-  /** Inclusive; stops tile it exactly. From TRIP.start / TRIP.end. */
+  /**
+   * Inclusive; stops tile it exactly. From TRIP.start / TRIP.end, and FIXED —
+   * the dates of the trip are settled, so nothing here can move them. That is
+   * why the window is code (`src/lib/trip.ts`) rather than content, and why
+   * export never writes anything outside `src/content/`.
+   */
   window: { start: string; end: string };
   baseHue: number;
   hueCount: number;
   stops: PlanStop[];
-  /** Stops matching no city — today's "Not on the itinerary yet" residue. */
-  unassigned: PlanIdea[];
 }
 
 // --- Reading -----------------------------------------------------------------
@@ -176,7 +152,7 @@ export const nextHue = (doc: TripDoc): number =>
  * Deliberately ignores hue and ids, which are presentational and generated —
  * a rebuild must not look like a content change.
  */
-export function hashDoc(doc: Pick<TripDoc, 'window' | 'stops' | 'unassigned'>): string {
+export function hashDoc(doc: Pick<TripDoc, 'window' | 'stops'>): string {
   const shape = JSON.stringify({
     w: doc.window,
     s: doc.stops.map((s) => [
@@ -184,11 +160,9 @@ export function hashDoc(doc: Pick<TripDoc, 'window' | 'stops' | 'unassigned'>): 
       s.name,
       s.cityJa ?? '',
       s.days,
-      s.trips.map((t) => [t.name, t.day, t.ideas.map((i) => i.id).sort()]),
-      s.ideas.map((i) => i.id).sort(),
+      s.trips.map((t) => [t.name, t.day]),
       s.source?.path ?? '',
     ]),
-    u: doc.unassigned.map((i) => i.id).sort(),
   });
   // FNV-1a. Not cryptographic — this only has to notice that content changed.
   let h = 0x811c9dc5;
@@ -205,15 +179,13 @@ export function hashDoc(doc: Pick<TripDoc, 'window' | 'stops' | 'unassigned'>): 
 
 const cloneStop = (s: PlanStop): PlanStop => ({
   ...s,
-  trips: s.trips.map((t) => ({ ...t, ideas: [...t.ideas] })),
-  ideas: [...s.ideas],
+  trips: s.trips.map((t) => ({ ...t })),
 });
 
 const clone = (doc: TripDoc): TripDoc => ({
   ...doc,
   window: { ...doc.window },
   stops: doc.stops.map(cloneStop),
-  unassigned: [...doc.unassigned],
 });
 
 /**
@@ -274,13 +246,12 @@ export function insertAt(doc: TripDoc, b: number): { doc: TripDoc; id: string } 
     days: 1,
     hue: nextHue(next),
     trips: [],
-    ideas: [],
   });
   next.hueCount += 1;
   return { doc: next, id };
 }
 
-/** Remove a stop; its days, day trips and ideas go to the neighbour that absorbs it. */
+/** Remove a stop; its days and day trips go to the neighbour that absorbs it. */
 export function deleteStop(doc: TripDoc, id: string): { doc: TripDoc; heirId: string } | null {
   if (doc.stops.length <= 1) return null;
   const next = clone(doc);
@@ -305,7 +276,6 @@ export function deleteStop(doc: TripDoc, id: string): { doc: TripDoc; heirId: st
   }
 
   heir.days += gone.days;
-  heir.ideas.push(...gone.ideas);
   next.stops.splice(i, 1);
   clampToLength(heir);
   return { doc: next, heirId: heir.id };
@@ -317,8 +287,8 @@ export function renameStop(doc: TripDoc, id: string, name: string): TripDoc {
   const next = clone(doc);
   const s = next.stops.find((x) => x.id === id);
   if (!s) return doc;
-  // Ideas and day trips match on the city name, so a rename re-homes every
-  // stop hanging off this one — that happens at export, from `s.name`.
+  // Day trips name their base by city, so a rename re-parents every trip
+  // hanging off this one — that happens at export, from `s.name`.
   s.name = v;
   return next;
 }
@@ -332,35 +302,6 @@ export function toggleKind(doc: TripDoc, id: string): TripDoc {
   return next;
 }
 
-/**
- * Lengthen the trip by a day at one end.
- *
- * The window used to be immutable — stops tiled a fixed span, so a boundary
- * drag only moved a day between neighbours and there was no way to leave home
- * a day earlier or fly back a day later. The new day joins the stop already at
- * that end, which is the least surprising thing: both ends are normally the
- * "In transit" / "Heading home" gaps, so an added day is travel by default,
- * and the `+` handle splits it off if it should be its own stop.
- *
- * The window lives in `src/lib/trip.ts`, so this is the one mutation whose
- * export touches code rather than content.
- */
-export function extendWindow(doc: TripDoc, edge: 'start' | 'end'): TripDoc {
-  if (doc.stops.length === 0) return doc;
-  const next = clone(doc);
-  if (edge === 'start') {
-    next.window.start = fromDayNumber(toDayNumber(next.window.start) - 1);
-    const first = next.stops[0];
-    first.days += 1;
-    // A day was inserted BEFORE everything already in that stop.
-    for (const t of first.trips) if (t.day !== null) t.day += 1;
-  } else {
-    next.window.end = fromDayNumber(toDayNumber(next.window.end) + 1);
-    next.stops[next.stops.length - 1].days += 1;
-  }
-  return next;
-}
-
 export function addTrip(
   doc: TripDoc,
   stopId: string,
@@ -369,7 +310,13 @@ export function addTrip(
   const next = clone(doc);
   const s = next.stops.find((x) => x.id === stopId);
   if (!s) return null;
-  s.trips.push({ id: freshId('trip'), name: 'New day trip', day, ideas: [] });
+  s.trips.push({
+    id: freshId('trip'),
+    name: 'New day trip',
+    day,
+    matchKeys: ['New day trip'],
+    explicitCities: false,
+  });
   return { doc: next, index: s.trips.length - 1 };
 }
 
@@ -396,8 +343,6 @@ export function deleteTrip(doc: TripDoc, stopId: string, index: number): TripDoc
   const next = clone(doc);
   const s = next.stops.find((x) => x.id === stopId);
   if (!s?.trips[index]) return doc;
-  // A day trip's claimed ideas outlive it — they go back to its base.
-  s.ideas.push(...s.trips[index].ideas);
   s.trips.splice(index, 1);
   return next;
 }
@@ -415,101 +360,3 @@ export function renameTrip(doc: TripDoc, stopId: string, index: number, name: st
   if (!trip.explicitCities) trip.matchKeys = [v];
   return next;
 }
-
-// --- Ideas -------------------------------------------------------------------
-// An idea can live on a stop, on one of that stop's day trips, or nowhere.
-// `IdeaHome` names those three places so the callers stay readable.
-
-export type IdeaHome =
-  | { kind: 'stop'; stopId: string }
-  | { kind: 'trip'; stopId: string; index: number }
-  | { kind: 'loose' };
-
-function bucketFor(doc: TripDoc, home: IdeaHome): PlanIdea[] | null {
-  if (home.kind === 'loose') return doc.unassigned;
-  const s = doc.stops.find((x) => x.id === home.stopId);
-  if (!s) return null;
-  if (home.kind === 'stop') return s.ideas;
-  return s.trips[home.index]?.ideas ?? null;
-}
-
-export function addIdea(
-  doc: TripDoc,
-  home: IdeaHome,
-  title: string,
-  category: CategoryKey
-): { doc: TripDoc; id: string } | null {
-  const v = title.trim();
-  if (!v) return null;
-  const next = clone(doc);
-  const bucket = bucketFor(next, home);
-  if (!bucket) return null;
-  const id = freshId('idea');
-  // No source and no city yet — export derives the city from wherever this
-  // lands and writes a fresh file.
-  bucket.push({ id, title: v, city: '', category });
-  return { doc: next, id };
-}
-
-export function moveIdea(doc: TripDoc, ideaId: string, home: IdeaHome): TripDoc {
-  const next = clone(doc);
-  const dst = bucketFor(next, home);
-  if (!dst) return doc;
-  for (const bucket of allBuckets(next)) {
-    const i = bucket.findIndex((x) => x.id === ideaId);
-    if (i < 0) continue;
-    const [idea] = bucket.splice(i, 1);
-    dst.push(idea);
-    return next;
-  }
-  return doc;
-}
-
-export function updateIdea(
-  doc: TripDoc,
-  ideaId: string,
-  patch: Partial<Pick<PlanIdea, 'title' | 'category' | 'link'>>
-): TripDoc {
-  const next = clone(doc);
-  for (const bucket of allBuckets(next)) {
-    const i = bucket.findIndex((x) => x.id === ideaId);
-    if (i < 0) continue;
-    const merged = { ...bucket[i], ...patch };
-    if (patch.title !== undefined) {
-      const v = patch.title.trim();
-      if (!v) return doc;
-      merged.title = v;
-    }
-    bucket[i] = merged;
-    return next;
-  }
-  return doc;
-}
-
-export function deleteIdea(doc: TripDoc, ideaId: string): TripDoc {
-  const next = clone(doc);
-  for (const bucket of allBuckets(next)) {
-    const i = bucket.findIndex((x) => x.id === ideaId);
-    if (i < 0) continue;
-    bucket.splice(i, 1);
-    return next;
-  }
-  return doc;
-}
-
-/** Every place an idea can be, for whole-document scans. */
-export function* allBuckets(doc: TripDoc): Generator<PlanIdea[]> {
-  yield doc.unassigned;
-  for (const s of doc.stops) {
-    yield s.ideas;
-    for (const t of s.trips) yield t.ideas;
-  }
-}
-
-export const findIdea = (doc: TripDoc, ideaId: string): PlanIdea | null => {
-  for (const bucket of allBuckets(doc)) {
-    const hit = bucket.find((x) => x.id === ideaId);
-    if (hit) return hit;
-  }
-  return null;
-};
