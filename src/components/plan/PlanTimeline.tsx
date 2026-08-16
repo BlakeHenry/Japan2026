@@ -523,16 +523,23 @@ export default function PlanTimeline({ seed }: Props) {
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    <span
-                      className="pl-bar-name"
-                      title="Double-click to rename · drag to reorder"
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setEditing({ type: 'stop', id: stop.id });
-                      }}
-                    >
-                      {stop.name}
-                    </span>
+                    // A travel bar wears the TRAVEL tag on its hatching and
+                    // nothing else. Its name ("In transit", "Open", "Heading
+                    // home") is internal — a gap exports no file — so printing
+                    // it under the tag says the same thing twice. The pane
+                    // still shows it; make the bar a stay to rename it.
+                    stop.kind !== 'gap' && (
+                      <span
+                        className="pl-bar-name"
+                        title="Double-click to rename · drag to reorder"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditing({ type: 'stop', id: stop.id });
+                        }}
+                      >
+                        {stop.name}
+                      </span>
+                    )
                   )}
                   {disp.length > 1 && (
                     <button
