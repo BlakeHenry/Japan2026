@@ -11,10 +11,13 @@ export const ACCENTS = ['#c3423f', '#3f7059', '#b06f2e', '#8c5a74'];
 
 export interface TripData {
   itinerary: Itinerary;
-  /** Pre-rendered markdown bodies, keyed by collection entry id */
+  /**
+   * Pre-rendered markdown bodies, keyed by collection entry id. Only stops
+   * have one: /map/<city>/ is the last page that renders a body, and the
+   * editable /overview/ carries segment and day-trip bodies as raw text on the
+   * plan document instead (an island can't render an Astro <Content />).
+   */
   stopContent: Map<string, any>;
-  segmentContent: Map<string, any>;
-  dayTripContent: Map<string, any>;
   /** "Oct 13 – Oct 27" — the booked trip window, not a derived span */
   dateRange: string;
   cities: string[];
@@ -61,16 +64,6 @@ async function build(): Promise<TripData> {
       stops.map(async (s) => [s.id, (await render(s)).Content] as const)
     )
   );
-  const segmentContent = new Map(
-    await Promise.all(
-      segments.map(async (s) => [s.id, (await render(s)).Content] as const)
-    )
-  );
-  const dayTripContent = new Map(
-    await Promise.all(
-      daytrips.map(async (t) => [t.id, (await render(t)).Content] as const)
-    )
-  );
 
   // Segments are legs carved out of the booked window. One that falls outside
   // it is either a typo or a trip that got rebooked — say so either way.
@@ -95,8 +88,6 @@ async function build(): Promise<TripData> {
   return {
     itinerary,
     stopContent,
-    segmentContent,
-    dayTripContent,
     // From the booked window, not from the segments: the dates are settled
     // even when no city has been picked yet.
     dateRange: formatRange(TRIP.start, TRIP.end),

@@ -3,7 +3,6 @@ city: Tokyo
 cityJa: "東京"
 start: 2026-10-13
 end: 2026-10-16
-arrivalIsTransit: true
 arrive:
   - mode: flight
     text: From Austin · AUS → DFW → HND · American, ~16h door to door

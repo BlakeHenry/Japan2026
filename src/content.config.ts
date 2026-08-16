@@ -113,12 +113,11 @@ const segments = defineCollection({
         // arrival.
         arrive: z.array(leg).optional(),
         depart: z.array(leg).optional(),
-        // Marks this stay's FIRST day as an arrival/transit day on the
-        // overview grid — a long landing that eats the day (a 3pm arrival,
-        // say) — instead of a normal city day. Doesn't touch lodging, which
-        // still starts that night; it only changes the City row's label for
-        // that one day.
-        arrivalIsTransit: z.boolean().optional(),
+        // NOTE: there is deliberately no per-day "this day is travel" field.
+        // A day eaten by travel is its own stop with no segment file — the
+        // hatched TRAVEL bars on /overview/ — not a flag on a stay. The
+        // earlier `arrivalIsTransit` / `transitDays` fields said it the other
+        // way and were removed; don't reintroduce them.
         // Optional so a city can join the itinerary before anyone has a
         // photo of it — CityPhoto and the route rail each render a designed
         // "no photo yet" state instead. Alt text stays mandatory whenever
@@ -153,6 +152,12 @@ const daytrips = defineCollection({
         name: z.string(),
         // Must exactly match a segment's `city`, the same way stops do.
         parent: z.string(),
+        // Which day of the trip this outing is pencilled for. Optional
+        // because "we'll fit it in somewhere" is a real state — an undated
+        // trip hangs off the middle of its base as a dashed pill. Date-only,
+        // never a datetime (zod would coerce it in the build machine's local
+        // zone and shift the day), and it must fall inside the parent's stay.
+        date: z.coerce.date().optional(),
         cityJa: z.string().optional(),
         // The handwritten aside — renders where a base shows its dates.
         note: z.string().optional(),

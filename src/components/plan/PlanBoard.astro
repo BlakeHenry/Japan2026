@@ -1,0 +1,724 @@
+---
+/**
+ * The /overview/ planner: the committed plan seeded in, the island mounted on
+ * top, and the design's visual language carried here rather than in Base.
+ *
+ * The CSS is `is:global` because island DOM sits outside Astro's style
+ * scoping — the same reason FilterBar.astro carries the filter styles. It's
+ * all namespaced under `.pl-` so it can't leak into the paper register that
+ * the cover and /map/<city>/ still use.
+ *
+ * `client:load`, not `client:visible`: the timeline is the page, and it is
+ * above the fold on every screen.
+ */
+import type { TripDoc } from '../../lib/plan/doc';
+import PlanTimeline from './PlanTimeline';
+
+interface Props {
+  seed: TripDoc;
+}
+
+const { seed } = Astro.props;
+---
+
+<div class="pl-surface">
+  <PlanTimeline seed={seed} client:load />
+</div>
+
+<style is:global>
+  /* The planner is its own register — a tool, not the scrapbook. It brings
+     its own palette and type rather than inheriting Base's paper tokens, and
+     everything is scoped under .pl- so the two never mix. */
+  .pl-surface {
+    --pl-ink: #171a21;
+    --pl-ink-soft: #4c5364;
+    --pl-ink-mute: #6d7484;
+    --pl-ink-faint: #9aa1af;
+    --pl-line: #e3e6ec;
+    --pl-line-soft: #eceef3;
+    --pl-edge: #ccd1db;
+    --pl-raised: #fafbfd;
+    --pl-field: #f2f3f6;
+    --pl-accent: oklch(0.55 0.21 262);
+    --pl-accent-deep: oklch(0.5 0.21 262);
+    --pl-danger: #c03030;
+    --pl-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --pl-sans: 'Sora', ui-sans-serif, system-ui, sans-serif;
+
+    background: var(--pl-field);
+    color: var(--pl-ink);
+    font-family: var(--pl-sans);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .pl-surface *,
+  .pl-surface *::before,
+  .pl-surface *::after {
+    box-sizing: border-box;
+  }
+
+  /* Base sets `h1, h2, h3 { font-family: var(--font-display) }` globally, and
+     an element rule beats an inherited value — so without this the planner's
+     headings come out in the paper register's EB Garamond. Restated on the
+     classes rather than as `.pl-surface h1`, which would be (0,1,1) and would
+     in turn beat the (0,1,0) `.pl-block-label` that wants the mono face. */
+  .pl-title,
+  .pl-pane-title {
+    font-family: var(--pl-sans);
+  }
+
+  /* --- Header ------------------------------------------------------------ */
+
+  .pl-head {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 24px 36px 14px;
+    background: var(--pl-raised);
+    border-bottom: 1px solid var(--pl-line-soft);
+  }
+
+  .pl-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .pl-meta {
+    margin: 0;
+    font-family: var(--pl-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--pl-ink-mute);
+  }
+
+  .pl-head-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+
+  .pl-btn {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #2a2f3a;
+    background: #fff;
+    border: 1px solid var(--pl-edge);
+    border-radius: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+  }
+
+  .pl-btn:hover {
+    border-color: var(--pl-accent);
+    color: var(--pl-accent-deep);
+  }
+
+  .pl-btn-primary {
+    border-color: var(--pl-accent);
+    color: var(--pl-accent-deep);
+    font-weight: 700;
+  }
+
+  .pl-btn-on {
+    color: #fff;
+    background: #3a4150;
+    border-color: #3a4150;
+  }
+
+  .pl-btn-on:hover {
+    color: #fff;
+  }
+
+  .pl-btn-danger {
+    color: var(--pl-danger);
+    border-color: #e3c4c4;
+    font-weight: 700;
+  }
+
+  .pl-btn-danger:hover {
+    background: #fdf2f2;
+    border-color: #d43a3a;
+    color: var(--pl-danger);
+  }
+
+  .pl-banner {
+    margin: 0;
+    padding: 12px 36px;
+    background: #fff;
+    border-bottom: 1px solid var(--pl-line);
+    font-size: 13px;
+    color: var(--pl-ink-soft);
+  }
+
+  .pl-banner ul {
+    margin: 6px 0;
+    padding-left: 18px;
+  }
+
+  .pl-link {
+    font: inherit;
+    color: var(--pl-accent-deep);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* --- Timeline ---------------------------------------------------------- */
+
+  .pl-scroll {
+    background: var(--pl-raised);
+    border-bottom: 1px solid var(--pl-line);
+    overflow-x: auto;
+    padding: 16px 36px 22px;
+  }
+
+  .pl-track {
+    position: relative;
+  }
+
+  .pl-days {
+    position: relative;
+    height: 44px;
+  }
+
+  /* Labels, not controls — the day rail has no interaction of its own. */
+  .pl-day {
+    position: absolute;
+    top: 0;
+    height: 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 0 0 0 8px;
+    border-left: 1px solid var(--pl-line-soft);
+  }
+
+  .pl-day-wd {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .pl-day-num {
+    font-family: var(--pl-mono);
+    font-size: 14px;
+  }
+
+  .pl-bars {
+    position: relative;
+    height: 64px;
+    margin-top: 8px;
+  }
+
+  .pl-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 12px;
+    outline-offset: 2px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .pl-bar-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1c2027;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pl-bar-input,
+  .pl-branch-input {
+    font-family: var(--pl-sans);
+    font-weight: 600;
+    color: #2a2f3a;
+    background: #fff;
+    border: 1px solid var(--pl-accent);
+    border-radius: 6px;
+    outline: none;
+  }
+
+  .pl-bar-input {
+    font-size: 13px;
+    padding: 2px 6px;
+    width: 100%;
+    max-width: 120px;
+  }
+
+  .pl-branch-input {
+    font-size: 11px;
+    padding: 1px 5px;
+    width: 92px;
+  }
+
+  .pl-bar-del {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #d6dae2;
+    color: #8a91a0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .pl-bar:hover .pl-bar-del {
+    display: flex;
+  }
+
+  .pl-bar-del:hover {
+    color: #d43a3a;
+    border-color: #e3a3a3;
+  }
+
+  /* Pencilled, not booked — the same dashed/hatched language the paper pages
+     use for anything nobody has committed to. */
+  .pl-hatch {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(26, 32, 48, 0.16) 0 6px,
+      rgba(255, 255, 255, 0.2) 6px 12px
+    );
+  }
+
+  .pl-hatch-tag {
+    font-family: var(--pl-mono);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #2a2f3a;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
+    padding: 3px 8px;
+    box-shadow: 0 1px 3px rgba(20, 24, 35, 0.2);
+  }
+
+  .pl-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    z-index: 30;
+    cursor: ew-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+  }
+
+  .pl-handle-grip {
+    width: 7px;
+    height: 30px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid #c8cdd8;
+    box-shadow: 0 1px 3px rgba(20, 24, 35, 0.16);
+  }
+
+  .pl-handle-add,
+  .pl-zone-add {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .pl-handle-add {
+    top: -24px;
+    width: 20px;
+    height: 20px;
+    background: var(--pl-accent);
+    color: #fff;
+    border: 0;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(40, 60, 200, 0.35);
+  }
+
+  .pl-branches {
+    position: relative;
+  }
+
+  .pl-zone {
+    position: absolute;
+    top: 0;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2;
+  }
+
+  .pl-zone-add {
+    position: static;
+    width: 19px;
+    height: 19px;
+    background: #fff;
+    border: 1.5px solid var(--pl-accent);
+    color: var(--pl-accent-deep);
+    font-size: 13px;
+    box-shadow: 0 2px 5px rgba(20, 24, 35, 0.15);
+  }
+
+  .pl-branch {
+    position: absolute;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    touch-action: none;
+    transform: translateX(-50%);
+  }
+
+  .pl-branch-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid;
+    flex: none;
+    margin-top: -4px;
+  }
+
+  .pl-branch-line {
+    flex: none;
+  }
+
+  .pl-branch-pill {
+    display: flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #fff;
+    white-space: nowrap;
+    outline-offset: 2px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2a2f3a;
+  }
+
+  /* --- Trip length ------------------------------------------------------- */
+
+  .pl-window {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 36px;
+    background: var(--pl-raised);
+    border-bottom: 1px solid var(--pl-line);
+  }
+
+  .pl-window-meta {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--pl-ink-faint);
+  }
+
+  /* --- Below the fold ---------------------------------------------------- */
+
+  .pl-below {
+    padding: 32px 44px 64px;
+  }
+
+  .pl-pane,
+  .pl-loose {
+    max-width: 640px;
+  }
+
+  .pl-loose {
+    margin-top: 48px;
+    border-top: 1px solid var(--pl-line);
+    padding-top: 24px;
+  }
+
+  .pl-pane-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pl-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    flex: none;
+  }
+
+  .pl-swatch-round {
+    border-radius: 50%;
+  }
+
+  .pl-pane-title {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .pl-pane-ja {
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--pl-ink-faint);
+  }
+
+  .pl-pane-meta {
+    margin: 10px 0 0;
+    font-family: var(--pl-mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--pl-ink-mute);
+  }
+
+  .pl-pane-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+
+  .pl-block {
+    margin-top: 28px;
+  }
+
+  /* The row-label voice, same job as .sheet-label on the paper pages. */
+  .pl-block-label {
+    margin: 0;
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--pl-ink-faint);
+  }
+
+  .pl-empty {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--pl-ink-faint);
+  }
+
+  .pl-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .pl-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--pl-line);
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .pl-chip:hover {
+    border-color: oklch(0.7 0.12 262);
+  }
+
+  .pl-chip-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .pl-chip-tag {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    color: var(--pl-accent-deep);
+  }
+
+  .pl-chip-tag-off {
+    color: #a7adba;
+  }
+
+  /* --- Ideas ------------------------------------------------------------- */
+
+  .pl-ideas {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .pl-idea {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--pl-line-soft);
+  }
+
+  .pl-idea-glyph {
+    font-size: 15px;
+    flex: none;
+  }
+
+  .pl-idea-title {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--pl-sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pl-ink);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 4px 6px;
+  }
+
+  .pl-idea-title:hover {
+    border-color: var(--pl-line);
+  }
+
+  .pl-idea-title:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--pl-accent);
+  }
+
+  .pl-idea-booked {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--pl-accent-deep);
+    background: #fff;
+    border: 1px solid var(--pl-line);
+    border-radius: 999px;
+    padding: 3px 8px;
+    flex: none;
+  }
+
+  .pl-idea-move,
+  .pl-idea-new select {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--pl-ink-mute);
+    background: #fff;
+    border: 1px solid var(--pl-line);
+    border-radius: 6px;
+    padding: 4px 6px;
+    max-width: 11rem;
+  }
+
+  .pl-idea-del {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #d6dae2;
+    color: #8a91a0;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .pl-idea-del:hover {
+    color: #d43a3a;
+    border-color: #e3a3a3;
+  }
+
+  .pl-idea-new {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .pl-idea-new input {
+    flex: 1;
+    min-width: 12rem;
+    font-family: var(--pl-sans);
+    font-size: 13px;
+    color: var(--pl-ink);
+    background: #fff;
+    border: 1px solid var(--pl-edge);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+
+  .pl-idea-new input:focus {
+    outline: none;
+    border-color: var(--pl-accent);
+  }
+
+  .pl-idea-new button {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #fff;
+    background: var(--pl-accent);
+    border: 1px solid var(--pl-accent);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+
+  .pl-idea-new button:disabled {
+    background: #fff;
+    color: var(--pl-ink-faint);
+    border-color: var(--pl-line);
+    cursor: default;
+  }
+
+  @media (max-width: 700px) {
+    .pl-head,
+    .pl-banner {
+      padding-inline: 18px;
+    }
+
+    .pl-scroll,
+    .pl-window {
+      padding-inline: 18px;
+    }
+
+    .pl-below {
+      padding-inline: 18px;
+    }
+  }
+</style>

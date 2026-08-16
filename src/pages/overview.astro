@@ -1,273 +1,70 @@
 ---
+import PlanBoard from '../components/plan/PlanBoard.astro';
 import Base from '../layouts/Base.astro';
-import Footer from '../components/Footer.astro';
-import StopList from '../components/StopList.astro';
-import TripOverview from '../components/TripOverview.astro';
-import DayTripPanel from '../components/segment/DayTripPanel.astro';
-import SegmentAreas from '../components/segment/SegmentAreas.astro';
-import { buildTripCalendar } from '../lib/itinerary';
 import { loadTrip } from '../lib/loadTrip';
-import { TRIP, TRIP_TITLE } from '../lib/trip';
+import { seedDoc } from '../lib/plan/seed';
+import { TRIP_TITLE } from '../lib/trip';
 
-const {
-  itinerary,
-  stopContent,
-  segmentContent,
-  dayTripContent,
-  dateRange,
-  accentFor,
-} = await loadTrip();
+const { itinerary } = await loadTrip();
 
-// Nights across the whole trip window, not the sum of the segments — the header
-// describes the trip we're on, which is the same length whether or not every
-// night of it has a city yet.
-const tripNights = Math.round(
-  (TRIP.end.getTime() - TRIP.start.getTime()) / 86_400_000
-);
-
-// The whole window flattened to one day-per-column table. Gated on segments
-// existing — with none there's nothing to chart, and the empty state below
-// owns the page instead.
-const calendar =
-  itinerary.segments.length > 0
-    ? buildTripCalendar(itinerary, TRIP.start, TRIP.end)
-    : null;
-
-// "You are here", drawn on the grid. CSS can't hop from a targeted panel back
-// up to the band that opened it, so the pairs are generated here — one rule per
-// city, and a pair per day trip (its own pill lit, its base's band washed:
-// "you are here, roughly"). Slugs are safe to interpolate raw: citySlug strips
-// punctuation, and buildItinerary throws on a duplicate, so every one of these
-// selectors is unique and combinator-free.
-const SELECTED_BAND =
-  'background:color-mix(in srgb, var(--band-accent) 42%, var(--paper-raised));box-shadow:inset 0 0 0 1px var(--band-accent)';
-const NEARBY_BAND =
-  'background:color-mix(in srgb, var(--band-accent) 30%, var(--paper-raised))';
-const SELECTED_FLOAT =
-  'color:var(--ink);background:var(--highlight);border-color:transparent';
-
-const targetRules = itinerary.segments
-  .flatMap((si) => [
-    `.ov-layout:has(#${si.slug}:target) .band[href="#${si.slug}"]{${SELECTED_BAND}}`,
-    ...si.dayTrips.flatMap((dt) => [
-      `.ov-layout:has(#${dt.slug}:target) .float[href="#${dt.slug}"]{${SELECTED_FLOAT}}`,
-      `.ov-layout:has(#${dt.slug}:target) .band[href="#${si.slug}"]{${NEARBY_BAND}}`,
-    ]),
-  ])
-  .join('');
-
-// The hashless load shows the first city's panel, so its band has to read as
-// selected too — same rule, keyed on nothing being targeted.
-const defaultRule =
-  itinerary.segments.length > 0
-    ? `.ov-layout:not(:has(.segment:target)) .band[href="#${itinerary.segments[0].slug}"]{${SELECTED_BAND}}`
-    : '';
+// The committed plan, serialized for the island. Everything after the first
+// paint comes from localStorage; this is what a fresh browser sees, and what
+// RESET goes back to.
+const seed = seedDoc(itinerary);
 ---
 
-{/* The trip, whole. The grid on top is both the summary and the navigation —
-    every city band and day-trip pill selects the panel below it — and the
-    panel area holds one city at a time. The paper stays; the scrapbook
-    dressing doesn't. Astro emits this as overview/index.html, so every link
-    to it uses a trailing slash — without one GitHub Pages answers with a
-    301 first. */}
+{/* The plan, and the whole of it — a horizontal day timeline you can edit,
+    with the selected stop's detail below. There is no backend (GitHub Pages),
+    so edits live in localStorage and EXPORT downloads the regenerated content
+    files to commit. Astro emits this as overview/index.html, so every link to
+    it uses a trailing slash — without one GitHub Pages answers with a 301
+    first. */}
 <Base
   title={`The plan · ${TRIP_TITLE}`}
-  description="Every day of the trip on one screen, and what we do with each city."
+  description="Every day of the trip on one screen, editable, and exportable back into the repo."
 >
   <Fragment slot="head">
-    <style is:inline set:html={targetRules + defaultRule}></style>
+    {/* The planner's two faces, requested only on this page: the cover and the
+        map pages stay in the paper register and must not pay for them. Both
+        are variable, so each family is one file. */}
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap"
+    />
   </Fragment>
 
-  <div class="ov-layout">
-    {/* Above the panels, and deliberately not a <section> and not inside
-        <main>: the hashless-load rule below matches the first <section> child
-        of <main>, so anything sectioning above the panels would silently
-        steal it. */}
-    <div class="ov-top">
-      <header class="ov-head">
-        <a class="ov-back" href="/">← {TRIP_TITLE}</a>
-        <h1>The plan</h1>
-        <p class="ov-dates">{dateRange} · {tripNights} nights</p>
-      </header>
-
-      {
-        calendar ? (
-          <TripOverview calendar={calendar} accentFor={accentFor} />
-        ) : (
-          <p class="ov-empty">
-            Two weeks in {TRIP.name}, and the calendar is still a blank page.
-          </p>
-        )
-      }
-    </div>
-
-    <main>
-      {
-        /* Day-trip panels come right after their base and — via the flattened
-           Fragment — stay direct children of <main>: the tab rules below match
-           `main > .segment`, and the first child must remain a base city for
-           the hashless-load `:first-of-type` rule. */
-        itinerary.segments.map((si, i) => {
-          const Notes = segmentContent.get(si.segment.id)!;
-          return (
-            <Fragment>
-              <SegmentAreas si={si} accent={accentFor(i)} index={i}>
-                <Notes />
-              </SegmentAreas>
-              {si.dayTrips.map((dt) => {
-                const TripNotes = dayTripContent.get(dt.trip.id)!;
-                return (
-                  <DayTripPanel
-                    dt={dt}
-                    parentCity={si.segment.data.city}
-                    accent={accentFor(i)}
-                    alt={i % 2 === 1}
-                  >
-                    <TripNotes />
-                  </DayTripPanel>
-                );
-              })}
-            </Fragment>
-          );
-        })
-      }
-
-      {/* A stop whose `city` matches no segment, or whose `date` falls outside
-          every stay, otherwise vanishes from the site with nothing but a build
-          warning to say so. Surfacing them here means a typo is visible to
-          whoever is reading the page, not just to whoever ran the build. Not a
-          .segment, so it sits below whichever city is open rather than
-          replacing it. */}
-      {
-        itinerary.unscheduled.length > 0 && (
-          <section class="unscheduled" id="unscheduled">
-            <h2>Not on the itinerary yet</h2>
-            <p>These don't line up with a city or a date on the trip.</p>
-            <StopList
-              stops={itinerary.unscheduled}
-              stopContent={stopContent}
-              layout="grid"
-            />
-          </section>
-        )
-      }
-
-      {/* Inside <main>, where it ends whichever panel is open — and in the
-          no-:has() fallback it sits where it always did: after everything. */}
-      <Footer />
-    </main>
-  </div>
+  <a class="pl-home" href="/">← {TRIP_TITLE}</a>
+  <PlanBoard seed={seed} />
 </Base>
 
 <style is:global>
-  /* One city at a time, selected from the grid above. The document scrolls
-     normally at every width — the grid is the top of the page rather than a
-     pinned half of it, so the open panel gets the whole viewport once you've
-     scrolled past the sheet. Selecting a band reveals its panel and the
-     browser scrolls to it the way it scrolls to any :target, smoothly via
-     Base.astro's scroll-behavior (which has its own reduced-motion reset).
-
-     It's all :target, so it works with JS off, /map/<city>/'s back links land
-     on the right city, and Back/Forward walk the hash history through cities
-     for free. Global because the rules have to reach SegmentShell's .segment
-     across scoping.
-
-     Everything is gated on :has() — ungated, a browser without it would drop
-     only the "show the first city" rule and open to a blank panel. Gated,
-     such browsers get the old design instead: the grid, then every city on
-     one long scrolling page. Same support line the generated "you are here"
-     rules in <head> already draw.
-
-     :target scoped to .segment so that targeting anything else in <main>
-     (#unscheduled, a stop id) falls back to showing the first city rather
-     than hiding all of them. */
-  @supports selector(main:has(.segment:target)) {
-    .ov-layout > main > .segment {
-      display: none;
-    }
-
-    .ov-layout > main > .segment:target {
-      display: block;
-    }
-
-    .ov-layout > main:not(:has(.segment:target)) > .segment:first-of-type {
-      display: block;
-    }
+  /* The planner owns the whole viewport, so the page can't keep Base's paper
+     background showing around it. */
+  body:has(.pl-surface) {
+    margin: 0;
+    background: #f2f3f6;
   }
 
-  /* Ungated: both shapes scroll a targeted panel to the top of the viewport,
-     and both want it to land a little below the edge rather than flush
-     against it. */
-  .ov-layout > main > .segment {
-    scroll-margin-top: 0.75rem;
-  }
-</style>
-
-<style>
-  .ov-layout {
-    max-width: 110rem;
-    margin-inline: auto;
-    padding-inline: 1.5rem;
-  }
-
-  .ov-top {
-    padding: 0.9rem 0 1rem;
-  }
-
-  /* One line: back, title, dates — so the sheet below it starts as high on
-     the page as it can. */
-  .ov-head {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0 0.9rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .ov-back {
-    font-size: 0.9rem;
-    font-weight: 600;
+  .pl-home {
+    position: absolute;
+    top: 10px;
+    left: 36px;
+    z-index: 5;
+    font-family: 'Space Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     text-decoration: none;
-    color: var(--ink-muted);
+    color: #6d7484;
   }
 
-  .ov-head h1 {
-    margin: 0;
-    font-size: 1.35rem;
-    line-height: 1.2;
+  .pl-home:hover {
+    color: oklch(0.5 0.21 262);
   }
 
-  .ov-dates {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--ink-muted);
-  }
-
-  .ov-empty {
-    margin: 3rem 0;
-    font-size: 1.2rem;
-    color: var(--ink-muted);
-    text-align: center;
-  }
-
-  .unscheduled {
-    padding: 2.5rem 0 3.5rem;
-  }
-
-  .unscheduled h2 {
-    margin: 0;
-    font-size: 1.35rem;
-  }
-
-  .unscheduled p {
-    margin: 0.2rem 0 1rem;
-    font-size: 0.9rem;
-    color: var(--ink-muted);
-  }
-
-  @media (max-width: 900px) {
-    .ov-layout {
-      padding-inline: 1rem;
+  @media (max-width: 700px) {
+    .pl-home {
+      left: 18px;
     }
   }
 </style>

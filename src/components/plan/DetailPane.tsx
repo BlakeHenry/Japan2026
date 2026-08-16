@@ -1,0 +1,197 @@
+/**
+ * What's below the timeline: the selected stop or day trip, and its ideas.
+ *
+ * The mockup's pane is name + travel toggle + day-trip chips. Everything the
+ * old city panels carried — lodging, the arrive/depart legs, the booked list,
+ * the hero photo — is deliberately not here; those fields still live in the
+ * markdown and still round-trip through export, they just aren't drawn.
+ */
+
+import type { CategoryKey } from '../../lib/categories';
+import type { IdeaHome, PlanIdea, TripDoc } from '../../lib/plan/doc';
+import { dateAt, startOf } from '../../lib/plan/doc';
+import IdeaEditor, { type IdeaTarget } from './IdeaEditor';
+
+export type Sel = { t: 's'; id: string } | { t: 't'; sid: string; ti: number };
+
+interface Props {
+  doc: TripDoc;
+  sel: Sel;
+  onSelect: (sel: Sel) => void;
+  onToggleKind: (id: string) => void;
+  onDeleteTrip: (sid: string, ti: number) => void;
+  onAddIdea: (home: IdeaHome, title: string, category: CategoryKey) => void;
+  onRenameIdea: (id: string, title: string) => void;
+  onMoveIdea: (id: string, home: IdeaHome) => void;
+  onDeleteIdea: (id: string) => void;
+}
+
+const WD = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const MO = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/** "SAT OCT 17" — read off the ISO string so it stays in UTC. */
+export function formatDay(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${WD[d.getUTCDay()]} ${MO[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+function buildTargets(doc: TripDoc): IdeaTarget[] {
+  const targets: IdeaTarget[] = [];
+  for (const s of doc.stops) {
+    targets.push({ key: `stop:${s.id}`, label: s.name, home: { kind: 'stop', stopId: s.id } });
+    s.trips.forEach((t, i) =>
+      targets.push({
+        key: `trip:${s.id}:${i}`,
+        label: `${s.name} → ${t.name}`,
+        home: { kind: 'trip', stopId: s.id, index: i },
+      })
+    );
+  }
+  targets.push({ key: 'loose', label: '— Not on the itinerary —', home: { kind: 'loose' } });
+  return targets;
+}
+
+export default function DetailPane(props: Props) {
+  const { doc, sel, onSelect } = props;
+  const targets = buildTargets(doc);
+
+  const ideaProps = (ideas: PlanIdea[], home: IdeaHome, currentKey: string, empty: string) => ({
+    ideas,
+    targets,
+    currentKey,
+    onAdd: (title: string, category: CategoryKey) => props.onAddIdea(home, title, category),
+    onRename: props.onRenameIdea,
+    onMove: props.onMoveIdea,
+    onDelete: props.onDeleteIdea,
+    emptyLabel: empty,
+  });
+
+  if (sel.t === 's') {
+    const index = doc.stops.findIndex((s) => s.id === sel.id);
+    const stop = doc.stops[index];
+    if (!stop) return null;
+    const from = startOf(doc.stops, index);
+    const isGap = stop.kind === 'gap';
+
+    return (
+      <div className="pl-pane">
+        <div className="pl-pane-head">
+          <span
+            className="pl-swatch"
+            style={{
+              background: isGap ? '#c8cdd8' : `oklch(0.85 0.09 ${stop.hue.toFixed(1)})`,
+            }}
+            aria-hidden="true"
+          />
+          <h1 className="pl-pane-title">
+            {stop.name}
+            {stop.cityJa && (
+              <span className="pl-pane-ja" lang="ja" aria-hidden="true">
+                {stop.cityJa}
+              </span>
+            )}
+          </h1>
+        </div>
+
+        <p className="pl-pane-meta">
+          {formatDay(dateAt(doc, from))} → {formatDay(dateAt(doc, from + stop.days - 1))} ·{' '}
+          {stop.days} {stop.days === 1 ? 'DAY' : 'DAYS'}
+          {isGap && ' · NO CITY'}
+        </p>
+
+        <div className="pl-pane-actions">
+          <button
+            type="button"
+            className={isGap ? 'pl-btn pl-btn-on' : 'pl-btn'}
+            onClick={() => props.onToggleKind(stop.id)}
+            title={
+              isGap
+                ? 'Make this a real stay — it will export a segment file'
+                : 'Mark these days as travel — they will export no segment'
+            }
+          >
+            {isGap ? 'TRAVEL DAYS — MAKE IT A STAY' : 'MARK AS TRAVEL DAYS'}
+          </button>
+        </div>
+
+        {stop.trips.length > 0 && (
+          <section className="pl-block">
+            <h2 className="pl-block-label">Day trips</h2>
+            <div className="pl-chips">
+              {stop.trips.map((t, ti) => (
+                <button
+                  type="button"
+                  key={t.id}
+                  className="pl-chip"
+                  onClick={() => onSelect({ t: 't', sid: stop.id, ti })}
+                >
+                  <span className="pl-chip-name">{t.name}</span>
+                  <span className={t.day === null ? 'pl-chip-tag pl-chip-tag-off' : 'pl-chip-tag'}>
+                    {t.day === null ? 'NO DAY PICKED YET' : formatDay(dateAt(doc, from + t.day))}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <IdeaEditor
+          {...ideaProps(
+            stop.ideas,
+            { kind: 'stop', stopId: stop.id },
+            `stop:${stop.id}`,
+            `Nothing pencilled in for ${stop.name} yet.`
+          )}
+        />
+      </div>
+    );
+  }
+
+  const index = doc.stops.findIndex((s) => s.id === sel.sid);
+  const stop = doc.stops[index];
+  const trip = stop?.trips[sel.ti];
+  if (!stop || !trip) return null;
+  const from = startOf(doc.stops, index);
+
+  return (
+    <div className="pl-pane">
+      <div className="pl-pane-head">
+        <span
+          className="pl-swatch pl-swatch-round"
+          style={{ background: `oklch(0.85 0.09 ${stop.hue.toFixed(1)})` }}
+          aria-hidden="true"
+        />
+        <h1 className="pl-pane-title">{trip.name}</h1>
+      </div>
+
+      <p className="pl-pane-meta">
+        DAY TRIP FROM {stop.name.toUpperCase()} ·{' '}
+        {trip.day === null
+          ? 'NO DAY PICKED YET — DRAG THE PILL ONTO A DAY'
+          : `${formatDay(dateAt(doc, from + trip.day))} · OUT AND BACK`}
+      </p>
+
+      <div className="pl-pane-actions">
+        <button type="button" className="pl-btn" onClick={() => onSelect({ t: 's', id: stop.id })}>
+          VIEW {stop.name.toUpperCase()}
+        </button>
+        <button
+          type="button"
+          className="pl-btn pl-btn-danger"
+          onClick={() => props.onDeleteTrip(stop.id, sel.ti)}
+        >
+          DELETE DAY TRIP
+        </button>
+      </div>
+
+      <IdeaEditor
+        {...ideaProps(
+          trip.ideas,
+          { kind: 'trip', stopId: stop.id, index: sel.ti },
+          `trip:${stop.id}:${sel.ti}`,
+          `Nothing pencilled in for ${trip.name} yet.`
+        )}
+      />
+    </div>
+  );
+}
