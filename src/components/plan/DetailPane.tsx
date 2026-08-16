@@ -1,10 +1,16 @@
 /**
  * What's below the timeline: the selected stop or day trip.
  *
- * The pane is name + dates + travel toggle + day-trip chips, and that is the
- * whole of it. The site plans SCHEDULED things — which city each day, the day
- * trips out of it, and reservations when there are any — so there is no block
- * here for loose ideas, and nothing to add one to.
+ * The pane is name + actions + day-trip chips, and that is the whole of it.
+ * The site plans SCHEDULED things — which city each day, the day trips out of
+ * it, and reservations when there are any — so there is no block here for
+ * loose ideas, and nothing to add one to.
+ *
+ * **It states no dates.** The timeline directly above is a calendar with the
+ * bar's extent drawn on it — repeating "WED OCT 14 → SAT OCT 17 · 4 DAYS"
+ * underneath only says in words what the reader can already see. A day trip's
+ * own day is the one exception, and it rides on its chip in the parent's list
+ * where it distinguishes one trip from another.
  *
  * Everything the old city panels carried — lodging, the arrive/depart legs,
  * the hero photo — is deliberately not here either; those fields still live in
@@ -63,12 +69,6 @@ export default function DetailPane(props: Props) {
           </h1>
         </div>
 
-        <p className="pl-pane-meta">
-          {formatDay(dateAt(doc, from))} → {formatDay(dateAt(doc, from + stop.days - 1))} ·{' '}
-          {stop.days} {stop.days === 1 ? 'DAY' : 'DAYS'}
-          {isGap && ' · NO CITY'}
-        </p>
-
         <div className="pl-pane-actions">
           <button
             type="button"
@@ -112,7 +112,6 @@ export default function DetailPane(props: Props) {
   const stop = doc.stops[index];
   const trip = stop?.trips[sel.ti];
   if (!stop || !trip) return null;
-  const from = startOf(doc.stops, index);
 
   return (
     <div className="pl-pane">
@@ -124,13 +123,6 @@ export default function DetailPane(props: Props) {
         />
         <h1 className="pl-pane-title">{trip.name}</h1>
       </div>
-
-      <p className="pl-pane-meta">
-        DAY TRIP FROM {stop.name.toUpperCase()} ·{' '}
-        {trip.day === null
-          ? 'NO DAY PICKED YET — DRAG THE PILL ONTO A DAY'
-          : `${formatDay(dateAt(doc, from + trip.day))} · OUT AND BACK`}
-      </p>
 
       <div className="pl-pane-actions">
         <button type="button" className="pl-btn" onClick={() => onSelect({ t: 's', id: stop.id })}>
