@@ -14,11 +14,10 @@
  *      fly-home day and the open Oct 17–18 stretch get a bar to drag.
  */
 
-import type { CategoryKey } from '../categories';
-import type { Itinerary, Stop } from '../itinerary';
+import type { Itinerary } from '../itinerary';
 import { dateKey } from '../itinerary';
 import { TRIP } from '../trip';
-import type { PlanDayTrip, PlanIdea, PlanStop, SourceFile, TripDoc } from './doc';
+import type { PlanDayTrip, PlanStop, SourceFile, TripDoc } from './doc';
 import { fromDayNumber, hashDoc, toDayNumber } from './doc';
 import { roundTripDiff } from './export';
 import { splitMarkdown } from './frontmatter';
@@ -43,13 +42,6 @@ const RAW_FILES = import.meta.glob<string>('/src/content/**/*.md', {
   eager: true,
 });
 
-/** The trip window's own file, so export can lengthen the trip. */
-const RAW_TRIP = import.meta.glob<string>('/src/lib/trip.ts', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
-
 function sourceFor(collection: string, id: string): SourceFile | undefined {
   const path = `src/content/${collection}/${id}.md`;
   const raw = RAW_FILES[`/${path}`];
@@ -59,28 +51,6 @@ function sourceFor(collection: string, id: string): SourceFile | undefined {
   }
   const { frontmatter, body } = splitMarkdown(raw);
   return { path, frontmatter, body };
-}
-
-const toIdea = (stop: Stop): PlanIdea => ({
-  id: stop.id,
-  source: sourceFor('stops', stop.id),
-  title: stop.data.title,
-  city: stop.data.city,
-  category: stop.data.category as CategoryKey,
-  date: stop.data.date ? dateKey(stop.data.date) : undefined,
-  time: stop.data.time,
-  link: stop.data.link,
-  lat: stop.data.lat,
-  lng: stop.data.lng,
-  // The authored path, recovered from the raw text — `stop.data.image` is an
-  // ImageMetadata the build made, and nothing in a browser can mint another.
-  imagePath: rawImagePath(stop.id),
-});
-
-function rawImagePath(stopId: string): string | undefined {
-  const raw = RAW_FILES[`/src/content/stops/${stopId}.md`];
-  if (!raw) return undefined;
-  return /^image:[ \t]*(.+?)[ \t]*$/m.exec(splitMarkdown(raw).frontmatter)?.[1];
 }
 
 export function seedDoc(itinerary: Itinerary): TripDoc {
@@ -110,7 +80,6 @@ export function seedDoc(itinerary: Itinerary): TripDoc {
       days,
       hue: 0,
       trips: [],
-      ideas: [],
     });
   };
 
@@ -133,7 +102,6 @@ export function seedDoc(itinerary: Itinerary): TripDoc {
         day: on !== null && on >= 0 && on < days ? on : null,
         matchKeys: dt.trip.data.cities ?? [dt.trip.data.name],
         explicitCities: dt.trip.data.cities !== undefined,
-        ideas: dt.ideas.map(toIdea),
       };
     });
 
@@ -146,9 +114,6 @@ export function seedDoc(itinerary: Itinerary): TripDoc {
       days,
       hue: hueAt(hueIndex++),
       trips,
-      // Bookings ride along with the ideas so a dated stop can't be silently
-      // dropped on export; the editor tags them with their date.
-      ideas: [...si.ideas, ...si.booked].map(toIdea),
     });
     cursor = to + 1;
   }
@@ -156,16 +121,13 @@ export function seedDoc(itinerary: Itinerary): TripDoc {
   // The tail of the window is the way home, unless nothing was placed at all.
   pushGap(windowEnd - windowStart + 1 - cursor, cursor === 0 ? 'In transit' : 'Heading home');
 
-  const tripText = RAW_TRIP['/src/lib/trip.ts'];
   const doc: TripDoc = {
     version: 1,
     baseHash: '',
-    windowSource: tripText ? { path: 'src/lib/trip.ts', text: tripText } : undefined,
     window: { start: fromDayNumber(windowStart), end: fromDayNumber(windowEnd) },
     baseHue: BASE_HUE,
     hueCount: hueIndex,
     stops,
-    unassigned: itinerary.unscheduled.map(toIdea),
   };
   doc.baseHash = hashDoc(doc);
 

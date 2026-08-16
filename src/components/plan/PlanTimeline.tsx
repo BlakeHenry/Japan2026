@@ -11,20 +11,15 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CategoryKey } from '../../lib/categories';
 import { citySlug } from '../../lib/itinerary';
-import type { IdeaHome, PlanStop, TripDoc } from '../../lib/plan/doc';
+import type { PlanStop, TripDoc } from '../../lib/plan/doc';
 import {
   STORAGE_KEY,
-  addIdea,
   addTrip,
   dateAt,
-  deleteIdea,
   deleteStop,
   deleteTrip,
-  extendWindow,
   insertAt,
-  moveIdea,
   moveTrip,
   renameStop,
   renameTrip,
@@ -33,11 +28,9 @@ import {
   startOf,
   toggleKind,
   totalDays,
-  updateIdea,
 } from '../../lib/plan/doc';
 import { BUNDLE_NAME, exportPlan } from '../../lib/plan/export';
 import DetailPane, { formatDay, type Sel } from './DetailPane';
-import IdeaEditor from './IdeaEditor';
 
 const PPD = 76; // pixels per day
 const ACCENT = 'oklch(0.55 0.21 262)';
@@ -85,12 +78,17 @@ export default function PlanTimeline({ seed }: Props) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as TripDoc;
-        if (saved?.version === 1 && Array.isArray(saved.stops) && saved.stops.length > 0) {
-          // `windowSource` is build-time data, not user state: always take the
-          // committed copy. A document stored before trip.ts last changed
-          // would otherwise export a stale rewrite of it — or, if it was
-          // stored before this field existed, none at all.
-          setDoc({ ...saved, windowSource: seed.windowSource });
+        // The window is fixed and comes from code, so a document stored under
+        // an older trip.ts — or one that predates the window being immutable —
+        // must not carry its own dates back in.
+        if (
+          saved?.version === 1 &&
+          Array.isArray(saved.stops) &&
+          saved.stops.length > 0 &&
+          saved.window?.start === seed.window.start &&
+          saved.window?.end === seed.window.end
+        ) {
+          setDoc(saved);
           setSel(openingSel(saved));
           // The committed plan moved on under a set of local edits. Say so
           // rather than quietly showing a plan that no longer matches the repo.
@@ -101,7 +99,7 @@ export default function PlanTimeline({ seed }: Props) {
       /* A corrupt or unreadable store just means we keep the committed plan. */
     }
     setHydrated(true);
-  }, [seed.baseHash, seed.windowSource]);
+  }, [seed.baseHash, seed.window.start, seed.window.end]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -367,15 +365,12 @@ export default function PlanTimeline({ seed }: Props) {
   });
   const branchH = Math.max(60, 44 + lanes.length * 34);
 
-  const windowMeta = `${formatDay(doc.window.start)} → ${formatDay(doc.window.end)}`;
-
   if (!doc.stops.length) return <p className="pl-empty">Nothing on the itinerary yet.</p>;
 
   return (
     <div className="pl-root">
       <header className="pl-head">
         <h1 className="pl-title">The whole trip</h1>
-        <p className="pl-meta">{windowMeta}</p>
         <div className="pl-head-actions">
           <button type="button" className="pl-btn" onClick={doReset} title="Discard local edits and go back to the committed plan">
             RESET
@@ -671,34 +666,11 @@ export default function PlanTimeline({ seed }: Props) {
         </div>
       </div>
 
-      {/* Lengthening the trip, which the timeline alone can't do: its stops
-          tile a fixed window, so dragging a boundary only moves a day between
-          neighbours. These two grow the window itself — and `src/lib/trip.ts`
-          on export. Kept out of the scrolling track deliberately: the two ends
-          are ~1200px apart, and a control you have to scroll to find is worse
-          than one that's always in the same place. */}
-      <div className="pl-window">
-        <button
-          type="button"
-          className="pl-btn"
-          onClick={() => commitDoc((d) => extendWindow(d, 'start'))}
-          title={`Leave a day earlier — the trip would start ${formatDay(dateAt(doc, -1))}`}
-        >
-          ← DAY AT START
-        </button>
-        <span className="pl-window-meta">
-          {total} {total === 1 ? 'day' : 'days'}
-        </span>
-        <button
-          type="button"
-          className="pl-btn"
-          onClick={() => commitDoc((d) => extendWindow(d, 'end'))}
-          title="Come home a day later — adds a day to the last stop"
-        >
-          DAY AT END →
-        </button>
-      </div>
-
+      {/* The trip's dates are fixed, so there is nothing under the track: the
+          stops tile a settled window, and dragging a boundary moves a day
+          between neighbours without ever changing how long the trip is. The
+          first and last days are travel stops like any other — mark them as
+          travel, don't special-case them. */}
       <div className="pl-below">
         <DetailPane
           doc={doc}
@@ -706,44 +678,7 @@ export default function PlanTimeline({ seed }: Props) {
           onSelect={setSel}
           onToggleKind={(id) => commitDoc((d) => toggleKind(d, id))}
           onDeleteTrip={doDeleteTrip}
-          onAddIdea={(home: IdeaHome, title: string, category: CategoryKey) => {
-            commitDoc((d) => addIdea(d, home, title, category)?.doc ?? d);
-          }}
-          onRenameIdea={(id, title) => commitDoc((d) => updateIdea(d, id, { title }))}
-          onMoveIdea={(id, home) => commitDoc((d) => moveIdea(d, id, home))}
-          onDeleteIdea={(id) => commitDoc((d) => deleteIdea(d, id))}
         />
-
-        {/* Stops matching no city on the timeline. Kept visible on purpose:
-            a pencilled idea without a home is supposed to be findable, not
-            silently dropped — that's what the old "Not on the itinerary yet"
-            strip did, and it isn't empty today. */}
-        {doc.unassigned.length > 0 && (
-          <section className="pl-loose">
-            <h2 className="pl-block-label">Not on the itinerary yet</h2>
-            <p className="pl-empty">These don't match any city on the timeline.</p>
-            <IdeaEditor
-              ideas={doc.unassigned}
-              targets={[
-                { key: 'loose', label: '— Not on the itinerary —', home: { kind: 'loose' } },
-                ...doc.stops.map((s) => ({
-                  key: `stop:${s.id}`,
-                  label: s.name,
-                  home: { kind: 'stop' as const, stopId: s.id },
-                })),
-              ]}
-              currentKey="loose"
-              onAdd={(title, category) => {
-                const result = addIdea(doc, { kind: 'loose' }, title, category);
-                if (result) commitDoc(result.doc);
-              }}
-              onRename={(id, title) => commitDoc(updateIdea(doc, id, { title }))}
-              onMove={(id, home) => commitDoc(moveIdea(doc, id, home))}
-              onDelete={(id) => commitDoc(deleteIdea(doc, id))}
-              emptyLabel="Nothing stranded."
-            />
-          </section>
-        )}
       </div>
     </div>
   );

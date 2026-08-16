@@ -9,33 +9,17 @@
  * The guiding rule is **change as few bytes as possible**. Every file is its
  * own original text with the handful of editor-owned keys re-set; a key whose
  * value hasn't changed splices in identically, so an unedited plan exports
- * byte-for-byte what is already committed. `scripts/check-roundtrip.mjs`
- * enforces exactly that.
+ * byte-for-byte what is already committed. `roundTripDiff` below enforces
+ * exactly that, and `seedDoc` runs it on every build.
+ *
+ * Only `src/content/**.md` is ever written. The trip window is fixed, so no
+ * export touches code.
  */
 
 import { citySlug } from '../itinerary';
-import type { PlanDayTrip, PlanIdea, PlanStop, SourceFile, TripDoc } from './doc';
+import type { PlanDayTrip, PlanStop, SourceFile, TripDoc } from './doc';
 import { dateAt, startOf } from './doc';
 import { joinMarkdown, removeKey, setKey, yamlScalar } from './frontmatter';
-
-/**
- * The trip window is a code constant, not content — it has to survive an
- * entirely empty itinerary — so lengthening the trip means rewriting the two
- * `Date.UTC(...)` calls in `src/lib/trip.ts`. Same philosophy as the
- * frontmatter surgery: touch those two calls, leave every other byte alone.
- * Month is 0-indexed there, hence the `- 1`.
- */
-const TRIP_WINDOW = /(start|end):\s*new Date\(Date\.UTC\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)\)/g;
-
-export function rewriteTripWindow(text: string, start: string, end: string): string {
-  const by: Record<string, string> = { start, end };
-  return text.replace(TRIP_WINDOW, (whole, key: string) => {
-    const iso = by[key];
-    if (!iso) return whole;
-    const [y, m, d] = iso.split('-').map(Number);
-    return `${key}: new Date(Date.UTC(${y}, ${m - 1}, ${d}))`;
-  });
-}
 
 export const FILE_MARK = '===== FILE: ';
 export const DELETE_MARK = '===== DELETED: ';
@@ -128,22 +112,6 @@ function dayTripFile(trip: PlanDayTrip, parent: PlanStop, doc: TripDoc, index: n
   });
 }
 
-function stopFile(idea: PlanIdea, city: string): string {
-  let fm =
-    idea.source?.frontmatter ??
-    ['title: PLACEHOLDER', 'city: PLACEHOLDER', 'category: sight'].join('\n');
-
-  fm = setKey(fm, 'title', yamlScalar(idea.title));
-  fm = setKey(fm, 'city', yamlScalar(city), 'title');
-  fm = setKey(fm, 'category', idea.category, 'city');
-  if (idea.link) fm = setKey(fm, 'link', idea.link, 'category');
-
-  return joinMarkdown({
-    frontmatter: fm,
-    body: idea.source?.body ?? '\n',
-  });
-}
-
 // --- The bundle --------------------------------------------------------------
 
 export function exportPlan(doc: TripDoc): ExportResult {
@@ -168,7 +136,6 @@ export function exportPlan(doc: TripDoc): ExportResult {
     if (s.source) seeded.add(s.source.path);
     for (const t of s.trips) if (t.source) seeded.add(t.source.path);
   }
-  for (const i of allIdeas(doc)) if (i.source) seeded.add(i.source.path);
 
   // Existing segment filenames and their numbers are claimed first, so a new
   // stay can't be handed a name or a prefix an untouched file already owns.
@@ -188,11 +155,11 @@ export function exportPlan(doc: TripDoc): ExportResult {
   doc.stops.forEach((stop, index) => {
     if (stop.kind === 'gap') {
       if (stop.source) deleted.push(stop.source.path);
-      if (stop.trips.length > 0 || stop.ideas.length > 0) {
+      if (stop.trips.length > 0) {
         warnings.push(
           `"${stop.name}" is marked as travel, so it exports no segment — its ` +
-            `${stop.trips.length} day trip(s) and ${stop.ideas.length} idea(s) ` +
-            `will match no city. Move them, or make it a stay.`
+            `${stop.trips.length} day trip(s) would name a parent city that ` +
+            `doesn't exist. Move them, or make it a stay.`
         );
       }
       return;
@@ -202,8 +169,8 @@ export function exportPlan(doc: TripDoc): ExportResult {
     used.add(path);
     files.push({ path, contents: segmentFile(stop, doc, index) });
 
-    // Only the first stay in a city claims its ideas and day trips — a return
-    // stay renders empty on purpose, and the same is true of what it exports.
+    // Only the first stay in a city claims its day trips — a return stay
+    // renders none on purpose, and the same is true of what it exports.
     const isFirstStay = firstStayOf.get(stop.name) === stop.id;
 
     for (const trip of stop.trips) {
@@ -218,63 +185,8 @@ export function exportPlan(doc: TripDoc): ExportResult {
             `render on the first ${stop.name} instead.`
         );
       }
-      for (const idea of trip.ideas) {
-        // Keep the authored town for a combined outing: "Himeji + Kobe" claims
-        // stops whose city is Himeji OR Kobe, so rewriting either would break it.
-        const city = trip.matchKeys.includes(idea.city) ? idea.city : trip.matchKeys[0];
-        emit(ideaPath(idea, used), stopFile(idea, city));
-      }
-    }
-
-    const from = startOf(doc.stops, index);
-    for (const idea of stop.ideas) {
-      emit(ideaPath(idea, used), stopFile(idea, stop.name));
-      if (idea.date) {
-        const day = dayIndexOf(doc, idea.date);
-        if (day === null || day < from || day >= from + stop.days) {
-          warnings.push(
-            `"${idea.title}" is booked for ${idea.date}, which is no longer ` +
-              `inside ${stop.name} (${dateAt(doc, from)} – ` +
-              `${dateAt(doc, from + stop.days - 1)}). Move the booking or the stay.`
-          );
-        }
-      }
-      if (!isFirstStay) {
-        warnings.push(
-          `"${idea.title}" sits on the return stay in ${stop.name}, but ideas ` +
-            `attach to the first stay in a city — it will render there instead.`
-        );
-      }
     }
   });
-
-  // Unassigned ideas keep whatever city they already name: they are unassigned
-  // precisely because it matches nothing, and guessing a new one would hide it.
-  for (const idea of doc.unassigned) {
-    if (!idea.city) {
-      warnings.push(`"${idea.title}" has no city and isn't on a stop — it exports nowhere.`);
-      continue;
-    }
-    emit(ideaPath(idea, used), stopFile(idea, idea.city));
-  }
-
-  // The trip window, but only when it actually moved — an unchanged window
-  // rewrites to the identical text and has no business in the bundle.
-  if (doc.windowSource) {
-    const rewritten = rewriteTripWindow(
-      doc.windowSource.text,
-      doc.window.start,
-      doc.window.end
-    );
-    if (rewritten !== doc.windowSource.text) {
-      used.add(doc.windowSource.path);
-      files.push({ path: doc.windowSource.path, contents: rewritten });
-      warnings.push(
-        `The trip window changed, so this bundle rewrites ${doc.windowSource.path} ` +
-          `— that's code, not content. Check the diff.`
-      );
-    }
-  }
 
   for (const path of seeded) {
     if (!used.has(path) && !deleted.includes(path)) deleted.push(path);
@@ -313,24 +225,7 @@ export function roundTripDiff(doc: TripDoc): string[] {
 
   for (const stop of doc.stops) {
     check(stop.source, `stay "${stop.name}"`);
-    for (const trip of stop.trips) {
-      check(trip.source, `day trip "${trip.name}"`);
-      for (const idea of trip.ideas) check(idea.source, `idea "${idea.title}"`);
-    }
-    for (const idea of stop.ideas) check(idea.source, `idea "${idea.title}"`);
-  }
-  for (const idea of doc.unassigned) check(idea.source, `unplaced idea "${idea.title}"`);
-
-  // The window rewrite has to be a no-op at the committed dates too, or every
-  // export would carry a spurious trip.ts whose only change is formatting.
-  if (doc.windowSource) {
-    const same = rewriteTripWindow(doc.windowSource.text, doc.window.start, doc.window.end);
-    if (same !== doc.windowSource.text) {
-      problems.push(
-        `trip window — ${doc.windowSource.path} would be rewritten at its own dates:\n` +
-          firstDiff(doc.windowSource.text, same)
-      );
-    }
+    for (const trip of stop.trips) check(trip.source, `day trip "${trip.name}"`);
   }
 
   return problems;
@@ -346,25 +241,6 @@ function firstDiff(before: string, after: string): string {
     }
   }
   return '    (files differ only in trailing whitespace)';
-}
-
-function ideaPath(idea: PlanIdea, used: Set<string>): string {
-  return idea.source ? idea.source.path : uniquePath('stops', citySlug(idea.title), used);
-}
-
-function dayIndexOf(doc: TripDoc, iso: string): number | null {
-  for (let d = 0; d < doc.stops.reduce((n, s) => n + s.days, 0); d++) {
-    if (dateAt(doc, d) === iso) return d;
-  }
-  return null;
-}
-
-function* allIdeas(doc: TripDoc): Generator<PlanIdea> {
-  yield* doc.unassigned;
-  for (const s of doc.stops) {
-    yield* s.ideas;
-    for (const t of s.trips) yield* t.ideas;
-  }
 }
 
 function renderBundle(
