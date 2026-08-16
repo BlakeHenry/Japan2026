@@ -32,7 +32,14 @@ import {
 import { BUNDLE_NAME, exportPlan } from '../../lib/plan/export';
 import DetailPane, { formatDay, type Sel } from './DetailPane';
 
-const PPD = 76; // pixels per day
+/**
+ * The track fills its container, so a day is worth however many pixels the
+ * screen can spare — until the whole trip would be squeezed under this, at
+ * which point the days stop shrinking and the track scrolls instead. Below
+ * roughly this much viewport (plus `.pl-scroll`'s gutters) you're dragging
+ * sideways rather than reading a squashed calendar.
+ */
+const MIN_TRACK = 1000;
 const ACCENT = 'oklch(0.55 0.21 262)';
 
 type Editing =
@@ -128,9 +135,29 @@ export default function PlanTimeline({ seed }: Props) {
     if (stop) history.replaceState(null, '', `#${citySlug(stop.name)}`);
   }, [sel, doc.stops, hydrated]);
 
+  // --- Sizing --------------------------------------------------------------
+  // A day is worth whatever the container can give it, down to MIN_TRACK. The
+  // measurement is of `.pl-scroll`'s CONTENT box, which excludes its gutters
+  // and doesn't grow with the track it scrolls — so widening the track can
+  // never feed back into the number we measured.
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState(MIN_TRACK);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setAvail(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // --- Derived -------------------------------------------------------------
 
   const total = totalDays(doc.stops);
+  const trackW = Math.max(MIN_TRACK, avail);
+  /** Pixels per day. Fractional on purpose — rounding leaves a ragged edge. */
+  const ppd = total > 0 ? trackW / total : 0;
 
   /** The stop order as it should read mid-drag, with the grabbed bar floated. */
   const disp: PlanStop[] = useMemo(() => {
@@ -138,17 +165,17 @@ export default function PlanTimeline({ seed }: Props) {
     const dragged = doc.stops.find((s) => s.id === reorderState.id);
     if (!dragged) return doc.stops;
     const others = doc.stops.filter((s) => s.id !== reorderState.id);
-    const centre = reorderState.left + (dragged.days * PPD) / 2;
+    const centre = reorderState.left + (dragged.days * ppd) / 2;
     let index = 0;
     let cum = 0;
     for (const o of others) {
-      if (centre > (cum + o.days / 2) * PPD) index++;
+      if (centre > (cum + o.days / 2) * ppd) index++;
       cum += o.days;
     }
     const out = others.slice();
     out.splice(index, 0, dragged);
     return out;
-  }, [doc.stops, reorderState]);
+  }, [doc.stops, reorderState, ppd]);
 
   /**
    * Prefer the updater form at call sites that don't need the resulting
@@ -162,12 +189,14 @@ export default function PlanTimeline({ seed }: Props) {
   );
 
   // The pointer handlers below outlive the render that created them, so they
-  // read the live document and stop order through refs rather than closing
-  // over values that a previous drag already replaced.
+  // read the live document, stop order and day width through refs rather than
+  // closing over values that a previous drag — or a window resize — replaced.
   const docRef = useRef(doc);
   docRef.current = doc;
   const dispRef = useRef(disp);
   dispRef.current = disp;
+  const ppdRef = useRef(ppd);
+  ppdRef.current = ppd;
 
   // --- Pointer drags -------------------------------------------------------
   // Listeners go on the window, not the element: the pointer routinely leaves
@@ -180,7 +209,7 @@ export default function PlanTimeline({ seed }: Props) {
     let applied = 0;
     setDragging(b);
     const move = (ev: PointerEvent) => {
-      const delta = Math.round((ev.clientX - startX) / PPD);
+      const delta = Math.round((ev.clientX - startX) / ppdRef.current);
       if (delta === applied) return;
       applied = delta;
       setDoc(resize(base, b, delta));
@@ -238,7 +267,7 @@ export default function PlanTimeline({ seed }: Props) {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         if (moved) {
-          const result = moveTrip(docRef.current, sid, ti, Math.floor(last / PPD));
+          const result = moveTrip(docRef.current, sid, ti, Math.floor(last / ppdRef.current));
           if (result) {
             setDoc(result.doc);
             setSel({ t: 't', sid: result.stopId, ti: result.index });
@@ -350,8 +379,8 @@ export default function PlanTimeline({ seed }: Props) {
       const pinned = trip.day !== null && trip.day >= 0 && trip.day < stop.days;
       const isDrag = tripDrag?.sid === stop.id && tripDrag.ti === ti;
       let cx = pinned
-        ? (from + trip.day!) * PPD + PPD / 2
-        : from * PPD + (stop.days * PPD) / 2;
+        ? (from + trip.day!) * ppd + ppd / 2
+        : from * ppd + (stop.days * ppd) / 2;
       if (isDrag) cx = tripDrag!.left;
       // Rough pill width, so two trips on nearby days don't overlap.
       const w = trip.name.length * 6.6 + 56;
@@ -410,8 +439,8 @@ export default function PlanTimeline({ seed }: Props) {
         </div>
       )}
 
-      <div className="pl-scroll">
-        <div className="pl-track" style={{ width: total * PPD }}>
+      <div className="pl-scroll" ref={scrollRef}>
+        <div className="pl-track" style={{ width: trackW }}>
           {/* Dates. Labels only — a travel day is its own stop, not a flag on
               a day, so there is nothing to toggle here. */}
           <div className="pl-days">
@@ -424,7 +453,7 @@ export default function PlanTimeline({ seed }: Props) {
                 <div
                   key={iso}
                   className="pl-day"
-                  style={{ left: d * PPD, width: PPD, borderLeftColor: starts ? '#c8cdd8' : '#e8eaef' }}
+                  style={{ left: d * ppd, width: ppd, borderLeftColor: starts ? '#c8cdd8' : '#e8eaef' }}
                   title={formatDay(iso)}
                 >
                   <span
@@ -455,7 +484,7 @@ export default function PlanTimeline({ seed }: Props) {
               const isSel = sel.t === 's' && sel.id === stop.id;
               const isFloat = reorderState?.id === stop.id;
               const isEditing = editing?.type === 'stop' && editing.id === stop.id;
-              const origin = startOf(disp, i) * PPD + 2;
+              const origin = startOf(disp, i) * ppd + 2;
               const left = isFloat ? reorderState!.left : origin;
               return (
                 <div
@@ -463,7 +492,7 @@ export default function PlanTimeline({ seed }: Props) {
                   className="pl-bar"
                   style={{
                     left,
-                    width: stop.days * PPD - 4,
+                    width: stop.days * ppd - 4,
                     background:
                       stop.kind === 'gap'
                         ? 'oklch(0.89 0.008 260)'
@@ -530,7 +559,7 @@ export default function PlanTimeline({ seed }: Props) {
                 <div
                   key={`hatch-${stop.id}`}
                   className="pl-hatch"
-                  style={{ left: startOf(disp, i) * PPD + 2, width: stop.days * PPD - 4 }}
+                  style={{ left: startOf(disp, i) * ppd + 2, width: stop.days * ppd - 4 }}
                 >
                   <span className="pl-hatch-tag">TRAVEL</span>
                 </div>
@@ -543,7 +572,7 @@ export default function PlanTimeline({ seed }: Props) {
                 <div
                   key={`handle-${b}`}
                   className="pl-handle"
-                  style={{ left: startOf(disp, b + 1) * PPD - 10 }}
+                  style={{ left: startOf(disp, b + 1) * ppd - 10 }}
                   onPointerDown={startResize(b)}
                   onMouseEnter={() => setHoverB(b)}
                   onMouseLeave={() => setHoverB(null)}
@@ -577,7 +606,7 @@ export default function PlanTimeline({ seed }: Props) {
                     <div
                       key={key}
                       className="pl-zone"
-                      style={{ left: (startOf(disp, i) + d) * PPD, width: PPD }}
+                      style={{ left: (startOf(disp, i) + d) * ppd, width: ppd }}
                       onMouseEnter={() => setHoverDay(key)}
                       onMouseLeave={() => setHoverDay(null)}
                     >

@@ -11,6 +11,8 @@ A static Astro site in three layers:
   between two bars to move a day across, double-click to rename, `+` to insert
   a stop or hang a day trip off a day. Below the timeline, the selected stop's
   pane: name, dates, a travel toggle, and its day trips.
+  **The track fills the window**, so a wide screen gets fat day columns; below
+  about 1070px it stops shrinking and scrolls sideways instead.
   **A travel day is a stop, not a flag on a day.** Insert one and mark it as
   travel; it draws hatched and exports no segment file. There is deliberately
   no per-day toggle — one way to say a thing. The first and last days of the
@@ -586,8 +588,16 @@ which looks exactly like "no map configured".
   runtime is React underneath, so its `state` became the `TripDoc` and its
   bindings became ordinary props.
   Drag handlers attach their listeners to **`window`**, not the element — the
-  pointer leaves a 76px bar constantly — and read the live document through a
-  ref, because they outlive the render that created them.
+  pointer leaves a one-day-wide bar constantly — and read the live document,
+  stop order and day width through refs, because they outlive the render that
+  created them.
+  **A day is worth `trackW / total` pixels, not a constant.** A `ResizeObserver`
+  on `.pl-scroll` measures its content box, the track takes that width exactly,
+  and `MIN_TRACK` (1000px) is the floor below which the days stop shrinking and
+  the track scrolls instead. Measuring the content box is what keeps it stable:
+  it excludes the gutters and doesn't grow with the track it scrolls, so a
+  wider track can't feed back into the measurement. `ppd` is deliberately
+  fractional — rounding it leaves a ragged strip at the right edge.
   A boundary's `+` is revealed by `.pl-handle`'s own hover, so the handle's
   box has to **contain** it — it reaches 28px above the bars via `padding-top`
   for exactly that reason. Move the button out of that box and it vanishes the
