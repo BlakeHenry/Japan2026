@@ -496,6 +496,18 @@ know about rather than fight:
   sharp run fine from their prebuilt binaries; `allowBuilds` records that
   decision. If a future dependency genuinely needs its build script, add it
   there explicitly.
+- **`sharp` is a direct dependency on purpose — don't drop it** because astro
+  already lists it. Astro carries sharp as its own *optional* dependency, so
+  under pnpm's isolated layout it links into astro's node_modules and never
+  appears at the project root. Astro emits its image service to
+  `dist/chunks/sharp_*.mjs`, and the `await import('sharp')` in there resolves
+  from `dist/` — the project root — which is why the build died with
+  `MissingSharp` on a clean install even though sharp was plainly on disk.
+  npm's flat hoisting used to put sharp at the root, so this only surfaced
+  after the pnpm migration, and only in CI: local checkouts kept the hoisted
+  npm-era `node_modules/sharp` and went on working. Astro's docs say the same
+  thing — pnpm users install sharp explicitly. Keep the range in step with
+  astro's (`^0.34.x`) so both resolve to one copy.
 - **`overrides` redirects `@astrojs/react`'s own `vite: ^8.0.13` dependency
   down to astro core's `vite@6.4.3`.** Without it `pnpm dev` 500s on every
   request ("Missing field `moduleType`" from `builtin:vite-react-refresh-
