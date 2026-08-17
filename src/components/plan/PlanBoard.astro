@@ -44,6 +44,13 @@ const { seed } = Astro.props;
     --pl-danger: #c03030;
     --pl-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     --pl-sans: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    /* One hatch for every pencilled thing — the timeline's travel bars and
+       the compare rows draw the same cloth. */
+    --pl-hatch-fill: repeating-linear-gradient(
+      -45deg,
+      rgba(26, 32, 48, 0.16) 0 6px,
+      rgba(255, 255, 255, 0.2) 6px 12px
+    );
 
     background: var(--pl-field);
     color: var(--pl-ink);
@@ -136,6 +143,41 @@ const { seed } = Astro.props;
     background: #fdf2f2;
     border-color: #d43a3a;
     color: var(--pl-danger);
+  }
+
+  .pl-btn-sm {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 6px 10px;
+    border-radius: 7px;
+  }
+
+  /* PLAN | COMPARE — which face of the planner you're looking at. */
+  .pl-mode {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid #dbdfe8;
+    border-radius: 9px;
+    background: #fff;
+  }
+
+  .pl-mode-btn {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--pl-ink-mute);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+
+  .pl-mode-btn-on {
+    color: #fff;
+    background: #2a2f3a;
   }
 
   .pl-banner {
@@ -298,11 +340,7 @@ const { seed } = Astro.props;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: repeating-linear-gradient(
-      -45deg,
-      rgba(26, 32, 48, 0.16) 0 6px,
-      rgba(255, 255, 255, 0.2) 6px 12px
-    );
+    background: var(--pl-hatch-fill);
   }
 
   .pl-hatch-tag {
@@ -430,6 +468,254 @@ const { seed } = Astro.props;
     font-size: 11px;
     font-weight: 600;
     color: #2a2f3a;
+  }
+
+  /* --- Compare ------------------------------------------------------------ */
+  /* One row per proposed schedule, read-only; the name gutter is sticky so a
+     row stays labelled while the day lane scrolls under it. Widths that the
+     layout depends on (the 232px gutter) are mirrored in ComparePane.tsx. */
+
+  .pl-cmp-scroll {
+    overflow-x: auto;
+    background: var(--pl-field);
+    padding-bottom: 48px;
+  }
+
+  /* Shrink-wraps the widest row so every row's border reaches the same edge,
+     while min-width keeps short content filling the viewport. */
+  .pl-cmp-inner {
+    display: inline-block;
+    min-width: 100%;
+  }
+
+  .pl-cmp-head {
+    display: flex;
+    background: var(--pl-raised);
+    border-bottom: 1px solid var(--pl-line);
+  }
+
+  .pl-cmp-gutter {
+    position: sticky;
+    left: 0;
+    z-index: 6;
+    width: 232px;
+    flex: none;
+    /* The row's own background rides along — a transparent sticky gutter
+       would let the lane show through underneath it mid-scroll. */
+    background: inherit;
+    border-right: 1px solid var(--pl-line);
+    border-left: 3px solid transparent;
+    padding: 18px 18px 18px 33px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pl-cmp-gutter-head {
+    z-index: 9;
+    background: var(--pl-raised);
+    border-left: 0;
+    padding: 16px 20px 12px 36px;
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .pl-cmp-count {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: var(--pl-ink-faint);
+  }
+
+  .pl-cmp-days {
+    position: relative;
+    height: 62px;
+    flex: none;
+  }
+
+  .pl-cmp-day {
+    position: absolute;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 8px;
+    border-left: 1px solid #e8eaef;
+  }
+
+  .pl-cmp-day .pl-day-num {
+    color: var(--pl-ink-soft);
+  }
+
+  .pl-cmp-row {
+    display: flex;
+    background: #fbfcfe;
+    border-bottom: 1px solid #e8eaef;
+  }
+
+  .pl-cmp-row-on {
+    background: #fff;
+  }
+
+  .pl-cmp-row-on > .pl-cmp-gutter {
+    border-left-color: var(--pl-accent);
+  }
+
+  .pl-cmp-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pl-cmp-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--pl-ink);
+  }
+
+  .pl-cmp-badge {
+    font-family: var(--pl-mono);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: oklch(0.45 0.19 262);
+    background: oklch(0.95 0.03 262);
+    border-radius: 999px;
+    padding: 3px 7px;
+  }
+
+  .pl-cmp-input {
+    font-family: var(--pl-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--pl-ink);
+    background: #fff;
+    border: 1px solid var(--pl-accent);
+    border-radius: 6px;
+    padding: 2px 6px;
+    width: 130px;
+    outline: none;
+  }
+
+  .pl-cmp-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  /* Quieter than the stock button — deleting a proposal shouldn't out-shout
+     making one the plan — but red once you reach for it. */
+  .pl-cmp-del {
+    color: #8a91a0;
+    border-color: #dbdfe8;
+  }
+
+  .pl-cmp-del:hover {
+    color: var(--pl-danger);
+    border-color: #e3a3a3;
+    background: #fff;
+  }
+
+  .pl-cmp-lane {
+    position: relative;
+    flex: none;
+    cursor: pointer;
+  }
+
+  .pl-cmp-seg {
+    position: absolute;
+    top: 16px;
+    height: 52px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    overflow: hidden;
+  }
+
+  .pl-cmp-seg-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1c2027;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pl-cmp-hatch {
+    position: absolute;
+    top: 16px;
+    height: 52px;
+    border-radius: 11px;
+    pointer-events: none;
+    background: var(--pl-hatch-fill);
+  }
+
+  /* A row's day-trip pills are markers, not controls: clicks fall through to
+     the row's one action, activating the schedule. */
+  .pl-cmp-pillstack {
+    position: absolute;
+    top: 68px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .pl-cmp-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    margin-top: -3px;
+  }
+
+  .pl-cmp-conn {
+    height: 8px;
+  }
+
+  .pl-cmp-pill {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #dbdfe8;
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 600;
+    color: #2a2f3a;
+  }
+
+  .pl-cmp-foot {
+    background: var(--pl-field);
+    border-bottom: 0;
+  }
+
+  .pl-cmp-gutter-foot {
+    border-right: 0;
+    background: var(--pl-field);
+    padding-left: 36px;
+  }
+
+  .pl-cmp-add {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--pl-accent-deep);
+    background: #fff;
+    border: 1.5px dashed oklch(0.72 0.11 262);
+    border-radius: 9px;
+    padding: 11px 14px;
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+  }
+
+  .pl-cmp-add:hover {
+    border-style: solid;
+    background: oklch(0.97 0.02 262);
   }
 
   /* --- Below the fold ---------------------------------------------------- */

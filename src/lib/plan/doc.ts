@@ -24,9 +24,11 @@
 export const DAY_MS = 86_400_000;
 
 /**
- * The localStorage key. Bump the suffix when TripDoc's shape changes — v1
- * carried loose ideas and a movable window, and neither exists any more, so a
- * v1 document would restore edits this editor can no longer express.
+ * The LEGACY localStorage key, from when the store was a single TripDoc. The
+ * live key is `STORE_KEY` in variants.ts (v3, the proposals wrapper); this
+ * one is only read for migration, never written. The rule carries over: bump
+ * the live key's suffix when TripDoc's shape — or the store's — changes, or a
+ * stored document restores edits the current editor can't express.
  */
 export const STORAGE_KEY = 'japan2026-plan-v2';
 

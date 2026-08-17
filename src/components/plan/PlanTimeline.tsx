@@ -8,6 +8,12 @@
  * The document is the state, localStorage is the save, and EXPORT is the
  * commit — see src/lib/plan/doc.ts and export.ts. This component owns only the
  * interaction: which bar you grabbed, where the pointer is, what's selected.
+ *
+ * Since the compare view landed there can be several documents — proposals,
+ * held side by side in a PlanStore (src/lib/plan/variants.ts) and drawn by
+ * ComparePane under the COMPARE header toggle. Exactly one is active; PLAN
+ * mode edits it, EXPORT writes it, and the others are localStorage-only
+ * drafts that export nothing.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +36,19 @@ import {
   totalDays,
 } from '../../lib/plan/doc';
 import { BUNDLE_NAME, exportPlan } from '../../lib/plan/export';
+import {
+  STORE_KEY,
+  activeVariant,
+  decodeStore,
+  deleteVariant,
+  duplicateActive,
+  makeActive,
+  renameVariant,
+  seedStore,
+  updateActiveDoc,
+  type PlanStore,
+} from '../../lib/plan/variants';
+import ComparePane from './ComparePane';
 import DetailPane, { formatDay, type Sel } from './DetailPane';
 
 /**
@@ -62,11 +81,18 @@ const openingSel = (doc: TripDoc): Sel => ({
 });
 
 export default function PlanTimeline({ seed }: Props) {
-  const [doc, setDoc] = useState<TripDoc>(seed);
+  // The store holds every proposed schedule; `doc` is the active one — the
+  // plan PLAN mode edits, EXPORT writes, and the stale banner speaks about.
+  const [store, setStore] = useState<PlanStore>(() => seedStore(seed));
+  const [mode, setMode] = useState<'plan' | 'compare'>('plan');
   const [sel, setSel] = useState<Sel>(openingSel(seed));
   const [hydrated, setHydrated] = useState(false);
-  const [stale, setStale] = useState(false);
   const [notice, setNotice] = useState<string[] | null>(null);
+
+  const active = activeVariant(store);
+  const doc = active.doc;
+  // Derived, not stored: resetting or switching variants re-answers it.
+  const stale = doc.baseHash !== seed.baseHash;
 
   const [hoverB, setHoverB] = useState<number | null>(null);
   const [hoverDay, setHoverDay] = useState<string | null>(null);
@@ -82,40 +108,32 @@ export default function PlanTimeline({ seed }: Props) {
   // and the first client render.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as TripDoc;
-        // The window is fixed and comes from code, so a document stored under
-        // an older trip.ts — or one that predates the window being immutable —
-        // must not carry its own dates back in.
-        if (
-          saved?.version === 1 &&
-          Array.isArray(saved.stops) &&
-          saved.stops.length > 0 &&
-          saved.window?.start === seed.window.start &&
-          saved.window?.end === seed.window.end
-        ) {
-          setDoc(saved);
-          setSel(openingSel(saved));
-          // The committed plan moved on under a set of local edits. Say so
-          // rather than quietly showing a plan that no longer matches the repo.
-          if (saved.baseHash !== seed.baseHash) setStale(true);
-        }
+      // decodeStore refuses a payload whose window doesn't match the seed's —
+      // the window is fixed and comes from code — and migrates the legacy
+      // single-document key into a store with one variant.
+      const restored = decodeStore(
+        localStorage.getItem(STORE_KEY),
+        localStorage.getItem(STORAGE_KEY),
+        seed
+      );
+      if (restored) {
+        setStore(restored);
+        setSel(openingSel(activeVariant(restored).doc));
       }
     } catch {
       /* A corrupt or unreadable store just means we keep the committed plan. */
     }
     setHydrated(true);
-  }, [seed.baseHash, seed.window.start, seed.window.end]);
+  }, [seed]);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+      localStorage.setItem(STORE_KEY, JSON.stringify(store));
     } catch {
       /* Private mode, or the quota is full. Editing still works this session. */
     }
-  }, [doc, hydrated]);
+  }, [store, hydrated]);
 
   // --- Deep links ----------------------------------------------------------
   // /map/<city>/ links back to /overview/#<city>, and that contract predates
@@ -150,7 +168,9 @@ export default function PlanTimeline({ seed }: Props) {
     const ro = new ResizeObserver(([entry]) => setAvail(entry.contentRect.width));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    // `mode`, because the track unmounts under COMPARE: coming back mounts a
+    // NEW element, and observing the old detached one would freeze the width.
+  }, [mode]);
 
   // --- Derived -------------------------------------------------------------
 
@@ -181,10 +201,12 @@ export default function PlanTimeline({ seed }: Props) {
    * Prefer the updater form at call sites that don't need the resulting
    * document: a handler that closes over `doc` reads the value from the render
    * that created it, so two commits landing before the next render would drop
-   * the first.
+   * the first. Every commit lands on the ACTIVE variant — the doc mutations
+   * stay doc-shaped and never know proposals exist.
    */
   const commitDoc = useCallback(
-    (next: TripDoc | ((current: TripDoc) => TripDoc)) => setDoc(next),
+    (next: TripDoc | ((current: TripDoc) => TripDoc)) =>
+      setStore((s) => updateActiveDoc(s, next)),
     []
   );
 
@@ -212,7 +234,7 @@ export default function PlanTimeline({ seed }: Props) {
       const delta = Math.round((ev.clientX - startX) / ppdRef.current);
       if (delta === applied) return;
       applied = delta;
-      setDoc(resize(base, b, delta));
+      commitDoc(resize(base, b, delta));
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -240,7 +262,7 @@ export default function PlanTimeline({ seed }: Props) {
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      if (moved) setDoc(reorder(docRef.current, dispRef.current));
+      if (moved) commitDoc(reorder(docRef.current, dispRef.current));
       setReorder(null);
     };
     window.addEventListener('pointermove', move);
@@ -269,7 +291,7 @@ export default function PlanTimeline({ seed }: Props) {
         if (moved) {
           const result = moveTrip(docRef.current, sid, ti, Math.floor(last / ppdRef.current));
           if (result) {
-            setDoc(result.doc);
+            commitDoc(result.doc);
             setSel({ t: 't', sid: result.stopId, ti: result.index });
           }
         }
@@ -331,7 +353,7 @@ export default function PlanTimeline({ seed }: Props) {
 
   const commitName = (value: string) => {
     if (!editing) return;
-    setDoc((d) =>
+    commitDoc((d) =>
       editing.type === 'stop'
         ? renameStop(d, editing.id, value)
         : renameTrip(d, editing.sid, editing.ti, value)
@@ -353,12 +375,50 @@ export default function PlanTimeline({ seed }: Props) {
     ]);
   };
 
+  // Resets the ACTIVE schedule only — other proposals are their own drafts,
+  // and throwing them away because one plan went back to committed would be
+  // the destructive surprise.
   const doReset = () => {
-    setDoc(seed);
+    setStore((s) => updateActiveDoc(s, seed));
     setSel(openingSel(seed));
-    setStale(false);
     setNotice(null);
   };
+
+  // --- Proposals -----------------------------------------------------------
+  // The compare view's verbs. Selection follows the active document: ids are
+  // per-variant, so activating another schedule re-opens on its first stay.
+
+  const switchMode = (next: 'plan' | 'compare') => {
+    setMode(next);
+    setEditing(null);
+  };
+
+  const doActivate = (id: string) => {
+    if (id === store.activeId) return;
+    const v = store.variants.find((x) => x.id === id);
+    if (!v) return;
+    setStore((s) => makeActive(s, id));
+    setSel(openingSel(v.doc));
+  };
+
+  /** Returns the new id so the compare view can drop straight into renaming. */
+  const doDuplicate = (): string => {
+    const result = duplicateActive(store);
+    setStore(result.store);
+    // The copy keeps its source's stop ids, so the current selection still
+    // points at the same bar in the new active document.
+    return result.id;
+  };
+
+  const doDeleteVariant = (id: string) => {
+    const next = deleteVariant(store, id);
+    if (!next) return;
+    setStore(next);
+    if (id === store.activeId) setSel(openingSel(activeVariant(next).doc));
+  };
+
+  const doRenameVariant = (id: string, name: string) =>
+    setStore((s) => renameVariant(s, id, name));
 
   // --- Layout --------------------------------------------------------------
 
@@ -399,16 +459,39 @@ export default function PlanTimeline({ seed }: Props) {
   return (
     <div className="pl-root">
       <header className="pl-head">
-        <h1 className="pl-title">The whole trip</h1>
+        <h1 className="pl-title">{mode === 'compare' ? 'Proposed schedules' : active.name}</h1>
         <div className="pl-head-actions">
-          <button type="button" className="pl-btn" onClick={doReset} title="Discard local edits and go back to the committed plan">
+          <div className="pl-mode">
+            <button
+              type="button"
+              className={mode === 'plan' ? 'pl-mode-btn pl-mode-btn-on' : 'pl-mode-btn'}
+              aria-pressed={mode === 'plan'}
+              onClick={() => switchMode('plan')}
+            >
+              PLAN
+            </button>
+            <button
+              type="button"
+              className={mode === 'compare' ? 'pl-mode-btn pl-mode-btn-on' : 'pl-mode-btn'}
+              aria-pressed={mode === 'compare'}
+              onClick={() => switchMode('compare')}
+            >
+              COMPARE
+            </button>
+          </div>
+          <button
+            type="button"
+            className="pl-btn"
+            onClick={doReset}
+            title="Discard this schedule's local edits and go back to the committed plan"
+          >
             RESET
           </button>
           <button
             type="button"
             className="pl-btn pl-btn-primary"
             onClick={doExport}
-            title="Download the regenerated content files"
+            title="Download the regenerated content files for the schedule you are editing"
           >
             EXPORT
           </button>
@@ -439,283 +522,296 @@ export default function PlanTimeline({ seed }: Props) {
         </div>
       )}
 
-      <div className="pl-scroll" ref={scrollRef}>
-        <div className="pl-track" style={{ width: trackW }}>
-          {/* Dates. Labels only — a travel day is its own stop, not a flag on
-              a day, so there is nothing to toggle here. */}
-          <div className="pl-days">
-            {Array.from({ length: total }, (_, d) => {
-              const iso = dateAt(doc, d);
-              const date = new Date(`${iso}T00:00:00Z`);
-              const wd = date.getUTCDay();
-              const starts = boundaries.has(d);
-              return (
-                <div
-                  key={iso}
-                  className="pl-day"
-                  style={{ left: d * ppd, width: ppd, borderLeftColor: starts ? '#c8cdd8' : '#e8eaef' }}
-                  title={formatDay(iso)}
-                >
-                  <span
-                    className="pl-day-wd"
-                    style={{ color: wd === 0 || wd === 6 ? 'oklch(0.5 0.19 262)' : '#7a8194' }}
-                  >
-                    {formatDay(iso).slice(0, 3)}
-                  </span>
-                  <span
-                    className="pl-day-num"
-                    style={{
-                      fontWeight: starts ? 700 : 400,
-                      color: starts ? '#171a21' : '#4c5364',
-                    }}
-                  >
-                    {date.getUTCDate() === 1 || d === 0
-                      ? formatDay(iso).slice(4)
-                      : date.getUTCDate()}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* The stops themselves. */}
-          <div className="pl-bars">
-            {disp.map((stop, i) => {
-              const isSel = sel.t === 's' && sel.id === stop.id;
-              const isFloat = reorderState?.id === stop.id;
-              const isEditing = editing?.type === 'stop' && editing.id === stop.id;
-              const origin = startOf(disp, i) * ppd + 2;
-              const left = isFloat ? reorderState!.left : origin;
-              return (
-                <div
-                  key={stop.id}
-                  className="pl-bar"
-                  style={{
-                    left,
-                    width: stop.days * ppd - 4,
-                    background:
-                      stop.kind === 'gap'
-                        ? 'oklch(0.89 0.008 260)'
-                        : `oklch(0.9 0.06 ${stop.hue.toFixed(1)})`,
-                    outline: isSel ? `2px solid ${ACCENT}` : 'none',
-                    cursor: isFloat ? 'grabbing' : 'grab',
-                    zIndex: isFloat ? 20 : 1,
-                    boxShadow: isFloat ? '0 10px 28px rgba(20,24,35,.28)' : 'none',
-                  }}
-                  onClick={() => selectStop(stop.id)}
-                  onPointerDown={startMove(stop.id, origin)}
-                >
-                  {isEditing ? (
-                    <input
-                      className="pl-bar-input"
-                      defaultValue={stop.name}
-                      ref={(el) => el?.select()}
-                      autoFocus
-                      onBlur={(e) => commitName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.currentTarget.blur();
-                        if (e.key === 'Escape') {
-                          e.currentTarget.value = stop.name;
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    // A travel bar wears the TRAVEL tag on its hatching and
-                    // nothing else. Its name ("In transit", "Open", "Heading
-                    // home") is internal — a gap exports no file — so printing
-                    // it under the tag says the same thing twice. The pane
-                    // still shows it; make the bar a stay to rename it.
-                    stop.kind !== 'gap' && (
-                      <span
-                        className="pl-bar-name"
-                        title="Double-click to rename · drag to reorder"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditing({ type: 'stop', id: stop.id });
-                        }}
-                      >
-                        {stop.name}
-                      </span>
-                    )
-                  )}
-                  {disp.length > 1 && (
-                    <button
-                      type="button"
-                      className="pl-bar-del"
-                      title="Delete — its days go to the neighbour"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        doDeleteStop(stop.id);
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Hatching marks a travel stop. A day is travel by being part of
-                one, so there is no per-day variant. */}
-            {disp.map((stop, i) =>
-              stop.kind === 'gap' && reorderState?.id !== stop.id ? (
-                <div
-                  key={`hatch-${stop.id}`}
-                  className="pl-hatch"
-                  style={{ left: startOf(disp, i) * ppd + 2, width: stop.days * ppd - 4 }}
-                >
-                  <span className="pl-hatch-tag">TRAVEL</span>
-                </div>
-              ) : null
-            )}
-
-            {/* Boundaries: drag to move a day across, or insert a stop. */}
-            {!reorderState &&
-              disp.slice(0, -1).map((_, b) => (
-                <div
-                  key={`handle-${b}`}
-                  className="pl-handle"
-                  style={{ left: startOf(disp, b + 1) * ppd - 10 }}
-                  onPointerDown={startResize(b)}
-                  onMouseEnter={() => setHoverB(b)}
-                  onMouseLeave={() => setHoverB(null)}
-                >
-                  <span className="pl-handle-grip" />
-                  {hoverB === b && dragging === null && (
-                    <button
-                      type="button"
-                      className="pl-handle-add"
-                      title="Insert a stop here"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        doInsert(b);
-                      }}
-                    >
-                      +
-                    </button>
-                  )}
-                </div>
-              ))}
-          </div>
-
-          {/* Day trips, hanging off the day they're pencilled for. */}
-          <div className="pl-branches" style={{ height: branchH }}>
-            {!reorderState &&
-              disp.flatMap((stop, i) =>
-                Array.from({ length: stop.days }, (_, d) => {
-                  const key = `${stop.id}:${d}`;
+      {mode === 'compare' ? (
+        <ComparePane
+          variants={store.variants}
+          activeId={store.activeId}
+          onActivate={doActivate}
+          onDuplicate={doDuplicate}
+          onDelete={doDeleteVariant}
+          onRename={doRenameVariant}
+        />
+      ) : (
+        <>
+          <div className="pl-scroll" ref={scrollRef}>
+            <div className="pl-track" style={{ width: trackW }}>
+              {/* Dates. Labels only — a travel day is its own stop, not a flag on
+                  a day, so there is nothing to toggle here. */}
+              <div className="pl-days">
+                {Array.from({ length: total }, (_, d) => {
+                  const iso = dateAt(doc, d);
+                  const date = new Date(`${iso}T00:00:00Z`);
+                  const wd = date.getUTCDay();
+                  const starts = boundaries.has(d);
                   return (
                     <div
-                      key={key}
-                      className="pl-zone"
-                      style={{ left: (startOf(disp, i) + d) * ppd, width: ppd }}
-                      onMouseEnter={() => setHoverDay(key)}
-                      onMouseLeave={() => setHoverDay(null)}
+                      key={iso}
+                      className="pl-day"
+                      style={{ left: d * ppd, width: ppd, borderLeftColor: starts ? '#c8cdd8' : '#e8eaef' }}
+                      title={formatDay(iso)}
                     >
-                      {hoverDay === key && (
+                      <span
+                        className="pl-day-wd"
+                        style={{ color: wd === 0 || wd === 6 ? 'oklch(0.5 0.19 262)' : '#7a8194' }}
+                      >
+                        {formatDay(iso).slice(0, 3)}
+                      </span>
+                      <span
+                        className="pl-day-num"
+                        style={{
+                          fontWeight: starts ? 700 : 400,
+                          color: starts ? '#171a21' : '#4c5364',
+                        }}
+                      >
+                        {date.getUTCDate() === 1 || d === 0
+                          ? formatDay(iso).slice(4)
+                          : date.getUTCDate()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* The stops themselves. */}
+              <div className="pl-bars">
+                {disp.map((stop, i) => {
+                  const isSel = sel.t === 's' && sel.id === stop.id;
+                  const isFloat = reorderState?.id === stop.id;
+                  const isEditing = editing?.type === 'stop' && editing.id === stop.id;
+                  const origin = startOf(disp, i) * ppd + 2;
+                  const left = isFloat ? reorderState!.left : origin;
+                  return (
+                    <div
+                      key={stop.id}
+                      className="pl-bar"
+                      style={{
+                        left,
+                        width: stop.days * ppd - 4,
+                        background:
+                          stop.kind === 'gap'
+                            ? 'oklch(0.89 0.008 260)'
+                            : `oklch(0.9 0.06 ${stop.hue.toFixed(1)})`,
+                        outline: isSel ? `2px solid ${ACCENT}` : 'none',
+                        cursor: isFloat ? 'grabbing' : 'grab',
+                        zIndex: isFloat ? 20 : 1,
+                        boxShadow: isFloat ? '0 10px 28px rgba(20,24,35,.28)' : 'none',
+                      }}
+                      onClick={() => selectStop(stop.id)}
+                      onPointerDown={startMove(stop.id, origin)}
+                    >
+                      {isEditing ? (
+                        <input
+                          className="pl-bar-input"
+                          defaultValue={stop.name}
+                          ref={(el) => el?.select()}
+                          autoFocus
+                          onBlur={(e) => commitName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                            if (e.key === 'Escape') {
+                              e.currentTarget.value = stop.name;
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        // A travel bar wears the TRAVEL tag on its hatching and
+                        // nothing else. Its name ("In transit", "Open", "Heading
+                        // home") is internal — a gap exports no file — so printing
+                        // it under the tag says the same thing twice. The pane
+                        // still shows it; make the bar a stay to rename it.
+                        stop.kind !== 'gap' && (
+                          <span
+                            className="pl-bar-name"
+                            title="Double-click to rename · drag to reorder"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditing({ type: 'stop', id: stop.id });
+                            }}
+                          >
+                            {stop.name}
+                          </span>
+                        )
+                      )}
+                      {disp.length > 1 && (
                         <button
                           type="button"
-                          className="pl-zone-add"
-                          title="Add a day trip on this day"
-                          onClick={() => doAddTrip(stop.id, d)}
+                          className="pl-bar-del"
+                          title="Delete — its days go to the neighbour"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            doDeleteStop(stop.id);
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Hatching marks a travel stop. A day is travel by being part of
+                    one, so there is no per-day variant. */}
+                {disp.map((stop, i) =>
+                  stop.kind === 'gap' && reorderState?.id !== stop.id ? (
+                    <div
+                      key={`hatch-${stop.id}`}
+                      className="pl-hatch"
+                      style={{ left: startOf(disp, i) * ppd + 2, width: stop.days * ppd - 4 }}
+                    >
+                      <span className="pl-hatch-tag">TRAVEL</span>
+                    </div>
+                  ) : null
+                )}
+
+                {/* Boundaries: drag to move a day across, or insert a stop. */}
+                {!reorderState &&
+                  disp.slice(0, -1).map((_, b) => (
+                    <div
+                      key={`handle-${b}`}
+                      className="pl-handle"
+                      style={{ left: startOf(disp, b + 1) * ppd - 10 }}
+                      onPointerDown={startResize(b)}
+                      onMouseEnter={() => setHoverB(b)}
+                      onMouseLeave={() => setHoverB(null)}
+                    >
+                      <span className="pl-handle-grip" />
+                      {hoverB === b && dragging === null && (
+                        <button
+                          type="button"
+                          className="pl-handle-add"
+                          title="Insert a stop here"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            doInsert(b);
+                          }}
                         >
                           +
                         </button>
                       )}
                     </div>
-                  );
-                })
-              )}
+                  ))}
+              </div>
 
-            {branches.map(({ stop, trip, ti, cx, lane, pinned, isDrag, hue }) => {
-              const isSel = sel.t === 't' && sel.sid === stop.id && sel.ti === ti;
-              const isEditing = editing?.type === 'trip' && editing.sid === stop.id && editing.ti === ti;
-              return (
-                <div
-                  key={trip.id}
-                  className="pl-branch"
-                  style={{
-                    left: cx,
-                    cursor: isDrag ? 'grabbing' : 'grab',
-                    zIndex: isDrag ? 30 : 3,
-                  }}
-                  onClick={() => selectTrip(stop.id, ti)}
-                  onPointerDown={startTripDrag(stop.id, ti, cx)}
-                >
-                  <span
-                    className="pl-branch-dot"
-                    style={{ background: pinned ? hue : '#fff', borderColor: pinned ? hue : '#b3b9c5' }}
-                  />
-                  <span
-                    className="pl-branch-line"
-                    style={{
-                      height: 10 + lane * 34,
-                      borderLeft: pinned ? `1.5px solid ${hue}` : '1.5px dashed #b3b9c5',
-                    }}
-                  />
-                  <span
-                    className="pl-branch-pill"
-                    style={{
-                      border: pinned ? '1px solid #dbdfe8' : '1.5px dashed #c8cdd8',
-                      outline: isSel ? `2px solid ${ACCENT}` : 'none',
-                      boxShadow: isDrag ? '0 8px 20px rgba(20,24,35,.25)' : 'none',
-                    }}
-                  >
-                    {isEditing ? (
-                      <input
-                        className="pl-branch-input"
-                        defaultValue={trip.name}
-                        ref={(el) => el?.select()}
-                        autoFocus
-                        onBlur={(e) => commitName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') e.currentTarget.blur();
-                          if (e.key === 'Escape') {
-                            e.currentTarget.value = trip.name;
-                            e.currentTarget.blur();
-                          }
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
+              {/* Day trips, hanging off the day they're pencilled for. */}
+              <div className="pl-branches" style={{ height: branchH }}>
+                {!reorderState &&
+                  disp.flatMap((stop, i) =>
+                    Array.from({ length: stop.days }, (_, d) => {
+                      const key = `${stop.id}:${d}`;
+                      return (
+                        <div
+                          key={key}
+                          className="pl-zone"
+                          style={{ left: (startOf(disp, i) + d) * ppd, width: ppd }}
+                          onMouseEnter={() => setHoverDay(key)}
+                          onMouseLeave={() => setHoverDay(null)}
+                        >
+                          {hoverDay === key && (
+                            <button
+                              type="button"
+                              className="pl-zone-add"
+                              title="Add a day trip on this day"
+                              onClick={() => doAddTrip(stop.id, d)}
+                            >
+                              +
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+
+                {branches.map(({ stop, trip, ti, cx, lane, pinned, isDrag, hue }) => {
+                  const isSel = sel.t === 't' && sel.sid === stop.id && sel.ti === ti;
+                  const isEditing = editing?.type === 'trip' && editing.sid === stop.id && editing.ti === ti;
+                  return (
+                    <div
+                      key={trip.id}
+                      className="pl-branch"
+                      style={{
+                        left: cx,
+                        cursor: isDrag ? 'grabbing' : 'grab',
+                        zIndex: isDrag ? 30 : 3,
+                      }}
+                      onClick={() => selectTrip(stop.id, ti)}
+                      onPointerDown={startTripDrag(stop.id, ti, cx)}
+                    >
                       <span
-                        title="Click for details · double-click to rename · drag to move"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditing({ type: 'trip', sid: stop.id, ti });
+                        className="pl-branch-dot"
+                        style={{ background: pinned ? hue : '#fff', borderColor: pinned ? hue : '#b3b9c5' }}
+                      />
+                      <span
+                        className="pl-branch-line"
+                        style={{
+                          height: 10 + lane * 34,
+                          borderLeft: pinned ? `1.5px solid ${hue}` : '1.5px dashed #b3b9c5',
+                        }}
+                      />
+                      <span
+                        className="pl-branch-pill"
+                        style={{
+                          border: pinned ? '1px solid #dbdfe8' : '1.5px dashed #c8cdd8',
+                          outline: isSel ? `2px solid ${ACCENT}` : 'none',
+                          boxShadow: isDrag ? '0 8px 20px rgba(20,24,35,.25)' : 'none',
                         }}
                       >
-                        {trip.name}
+                        {isEditing ? (
+                          <input
+                            className="pl-branch-input"
+                            defaultValue={trip.name}
+                            ref={(el) => el?.select()}
+                            autoFocus
+                            onBlur={(e) => commitName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') e.currentTarget.blur();
+                              if (e.key === 'Escape') {
+                                e.currentTarget.value = trip.name;
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span
+                            title="Click for details · double-click to rename · drag to move"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditing({ type: 'trip', sid: stop.id, ti });
+                            }}
+                          >
+                            {trip.name}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* The trip's dates are fixed, so there is nothing under the track: the
-          stops tile a settled window, and dragging a boundary moves a day
-          between neighbours without ever changing how long the trip is. The
-          first and last days are travel stops like any other — mark them as
-          travel, don't special-case them. */}
-      <div className="pl-below">
-        <DetailPane
-          doc={doc}
-          sel={sel}
-          onSelect={setSel}
-          onToggleKind={(id) => commitDoc((d) => toggleKind(d, id))}
-          onDeleteTrip={doDeleteTrip}
-        />
-      </div>
+          {/* The trip's dates are fixed, so there is nothing under the track: the
+              stops tile a settled window, and dragging a boundary moves a day
+              between neighbours without ever changing how long the trip is. The
+              first and last days are travel stops like any other — mark them as
+              travel, don't special-case them. */}
+          <div className="pl-below">
+            <DetailPane
+              doc={doc}
+              sel={sel}
+              onSelect={setSel}
+              onToggleKind={(id) => commitDoc((d) => toggleKind(d, id))}
+              onDeleteTrip={doDeleteTrip}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

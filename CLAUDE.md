@@ -11,6 +11,12 @@ A static Astro site in three layers:
   between two bars to move a day across, double-click to rename, `+` to insert
   a stop or hang a day trip off a day. Below the timeline, the selected stop's
   pane: name, dates, a travel toggle, and its day trips.
+  **There can be several schedules.** The PLAN | COMPARE toggle in the header
+  flips to a compare view: one read-only row per proposed schedule, `+ NEW
+  PROPOSAL` to branch the one being edited, MAKE MAIN PLAN to switch which
+  one PLAN mode edits and EXPORT writes. Proposals are localStorage-only
+  working state — only the active schedule ever exports, and a fresh browser
+  has exactly one, seeded from the committed content.
   **The track fills the window**, so a wide screen gets fat day columns; below
   about 1070px it stops shrinking and scrolls sideways instead.
   **A travel day is a stop, not a flag on a day.** Insert one and mark it as
@@ -369,10 +375,12 @@ that gap:
    at build time and serializes it into the page. A fresh browser sees exactly
    what is in `src/content/`.
 2. **Edit.** The island writes every change to
-   `localStorage['japan2026-plan-v1']`. Nothing is uploaded anywhere.
+   `localStorage['japan2026-plan-v3']`. Nothing is uploaded anywhere.
 3. **Export.** EXPORT downloads `japan2026-content.txt` — a delimited bundle
    of regenerated markdown, one `===== FILE: <path> =====` section each, plus
-   `===== DELETED: <path> =====` lines and any warnings.
+   `===== DELETED: <path> =====` lines and any warnings. Only the **active**
+   schedule exports; proposals on the compare view are drafts and never touch
+   a bundle.
 4. **Apply.** `pnpm plan:apply <file>` writes the bundle back onto disk.
    Then `pnpm build` to validate. It refuses any path outside
    `src/content/**.md`, because the bundle is a downloaded file.
@@ -416,12 +424,15 @@ that becomes a gap has its segment file deleted.
 Day trips name their base by **city name**, so renaming a stop re-parents its
 day trips on export.
 
-**`localStorage` is versioned** (`japan2026-plan-v2`). Bump the suffix in
-`doc.ts` whenever `TripDoc`'s shape changes, or a stored document restores
-edits the current editor can't express — v1 carried loose ideas and a movable
-window, and both are gone. The island also refuses a stored document whose
+**`localStorage` is versioned** (`japan2026-plan-v3`, the `STORE_KEY` in
+`variants.ts`). Bump the suffix whenever `TripDoc`'s shape — or the store's —
+changes, or a stored document restores edits the current editor can't
+express: v1 carried loose ideas and a movable window, v2 was a single
+document with no proposals. A v2 payload still migrates in as the one main
+variant; anything older is refused. The island also refuses a store whose
 window doesn't match the committed one, so a `trip.ts` edit can't be masked
-by old local state.
+by old local state — and since every proposal branched under the same window,
+one bad variant condemns the whole store.
 
 ## Commands
 
@@ -573,6 +584,13 @@ which looks exactly like "no map configured".
   are fixed, and no mutation may start changing that quietly.
   Anything that shrinks a stop must call `clampToLength`, or a day trip keeps
   a `day` past the end of its parent and silently stops rendering.
+- `variants.ts` — proposals: the `PlanStore` that holds several `TripDoc`s
+  side by side and knows which one is active, plus its pure verbs
+  (`duplicateActive`, `deleteVariant`, `renameVariant`, `makeActive`,
+  `updateActiveDoc`) and `decodeStore`, which validates a stored payload and
+  migrates the legacy single-document v2 key. Owns `STORE_KEY`
+  (`japan2026-plan-v3`). The doc mutations in `doc.ts` never know proposals
+  exist — everything routes through `updateActiveDoc`.
 - `seed.ts` — the committed content as a `TripDoc`, at build time. Runs of
   days no segment claims become real `kind: 'gap'` nodes so the timeline tiles
   the whole window. It also runs the **round-trip assertion** (below).
@@ -586,7 +604,10 @@ which looks exactly like "no map configured".
   hatching, day-trip branch pills, persistence, the staleness banner, hash
   sync, and EXPORT. Ported from the imported Claude Design component, whose
   runtime is React underneath, so its `state` became the `TripDoc` and its
-  bindings became ordinary props.
+  bindings became ordinary props. Its state is the whole `PlanStore` since
+  proposals landed; the header's PLAN | COMPARE toggle swaps the timeline for
+  `ComparePane`, and every doc edit routes through `commitDoc` onto the
+  active variant.
   Drag handlers attach their listeners to **`window`**, not the element — the
   pointer leaves a one-day-wide bar constantly — and read the live document,
   stop order and day width through refs, because they outlive the render that
@@ -602,6 +623,13 @@ which looks exactly like "no map configured".
   box has to **contain** it — it reaches 28px above the bars via `padding-top`
   for exactly that reason. Move the button out of that box and it vanishes the
   instant you reach for it.
+- `ComparePane.tsx` — the COMPARE view: one read-only row per proposed
+  schedule (stops, travel hatching, pinned day-trip pills — unpinned ones are
+  editing furniture and don't draw), a sticky 232px name gutter, and the
+  variant verbs (rename, MAKE MAIN PLAN, DELETE, `+ NEW PROPOSAL`). The
+  fixed window means every row is the same length, so the imported design's
+  "+2 DAYS" delta has no equivalent here on purpose. The gutter width is
+  duplicated between `GUTTER_W` and `.pl-cmp-gutter` — keep them agreeing.
 - `DetailPane.tsx` — the pane below: name, dates, the travel toggle, and the
   day-trip chips. `IdeaEditor.tsx` sat beside it and is gone with ideas.
 
