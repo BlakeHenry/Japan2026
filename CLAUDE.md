@@ -11,12 +11,30 @@ A static Astro site in three layers:
   between two bars to move a day across, double-click to rename, `+` to insert
   a stop or hang a day trip off a day. Below the timeline, the selected stop's
   pane: name, dates, a travel toggle, and its day trips.
-  **There can be several schedules.** The PLAN | COMPARE toggle in the header
-  flips to a compare view: one read-only row per proposed schedule, `+ NEW
-  PROPOSAL` to branch the one being edited, MAKE MAIN PLAN to switch which
-  one PLAN mode edits and EXPORT writes. Proposals are localStorage-only
-  working state — only the active schedule ever exports, and a fresh browser
-  has exactly one, seeded from the committed content.
+  **Travel time between stops is drawn.** Each stay after the first carries an
+  optional `travelHours` — hours to get HERE from the previous stop — drawn as
+  a grey pill hanging at its start boundary (dashed `+?` while nobody has an
+  estimate) and summed into a `TRAVEL 3h +?` line under the schedule's name in
+  both PLAN and COMPARE. In-Japan only, by decision: the first stay's arrival
+  is the international flight — identical in every proposal — so it takes no
+  travel time, and gaps never carry one (a gap IS travel; its hatching says
+  so). **The pill is its own editor** — click it and it becomes an input
+  ("5:30", "5.5", "5h 30m", "90m"; empty clears it). That is the only way to
+  set one, which is what lets the compare rows carry it without a pane.
+  **There can be several schedules, and every one is editable in place.**
+  The PLAN | COMPARE toggle flips to the compare view: one **live** row per
+  proposed schedule — the same track editor PLAN uses, with the travel total
+  under each name. There is no selecting a schedule to edit somewhere else:
+  you edit it where it lies. `+ NEW PROPOSAL` branches the
+  main plan without promoting the copy; MAKE MAIN PLAN switches which
+  schedule EXPORT writes and the PLAN view zooms in on — being main is about
+  export, never about editing. Proposals are localStorage-only working
+  state — only the main schedule ever exports, and a fresh browser has
+  exactly one, seeded from the committed content.
+  **The compare rows stay compact, and draw no pane.** That screen is for
+  reading schedules against each other, so it offers only edits you make on
+  the track itself. The pane and its whole-stop verbs — mark a stretch as
+  travel days, delete a day trip — are the PLAN view's.
   **The track fills the window**, so a wide screen gets fat day columns; below
   about 1070px it stops shrinking and scrolls sideways instead.
   **A travel day is a stop, not a flag on a day.** Insert one and mark it as
@@ -94,7 +112,10 @@ Haneda). The two Tokyo flights are a
 15:00; James's (Denver) departs Oct 13 and lands Oct 14, landing time not
 yet known. Legs are **pencilled routes chosen by the humans** — researched
 and plausible, but not bookings — and they get updated when something is
-actually booked. The rule stands in adjusted form: **don't invent lodging
+actually booked. Two segments also carry `travelHours`, matching their
+pencilled train legs: Osaka `0.5` (30m from Kyoto) and the Tokyo return
+`2.5`. Kyoto deliberately has none — the Tokyo→Kyoto route is unchosen, so
+its timeline pill is the dashed `+?` until a human picks one. The rule stands in adjusted form: **don't invent lodging
 or reservations to make the page look fuller, and don't add or change
 transit legs nobody chose.** Everything on the site should be something a
 person actually chose.
@@ -233,6 +254,16 @@ start: 2026-10-13
 end: 2026-10-16         # inclusive LAST FULL DAY; ranges must not overlap.
                         # The header shows checkout (end + 1), so this reads
                         # as "Oct 13–17 · 4 nights".
+travelHours: 2.5        # optional — decimal door-to-door hours to get HERE
+                        # from the previous stop; the one transit fact the
+                        # timeline draws (boundary pill + per-schedule total),
+                        # and the planner's travel-time input edits it. NEVER
+                        # on the first segment (that arrival is the flight,
+                        # which stays on `arrive`); omit while the route is
+                        # unchosen (the timeline shows a dashed `+?`). Author
+                        # BARE and in JS canonical number form (0.5, 2.5, 3)
+                        # — export emits `String(n)`, so any other spelling
+                        # fails the round-trip assertion.
 lodging:                # optional in full — a stay with nowhere booked yet
   name: Hotel Gracery Shinjuku
   area: Shinjuku, by the station        # optional — orientation, not an address
@@ -280,7 +311,11 @@ of authored-but-undrawn fact `service`, `leaves` and `lands` already were.
 Every leg field is still legal, still validated, and still round-trips
 through export, so **keep filling them in**: they're facts a human chose and
 they're what a real booking carries. Just don't expect to see them.
-Day-trip `there`/`back` legs are in the same position.
+Day-trip `there`/`back` legs are in the same position. The top-level
+`travelHours` is the exception that proves it: the planner draws THAT — it
+summarizes a transition in one number, edited from the pane, without ever
+touching the nested legs (the frontmatter editor is top-level-only by
+design).
 
 The rules that still bind if legs come back: `departs`/`arrives` are
 **date-only** — a datetime string would be coerced in the build machine's
@@ -375,7 +410,7 @@ that gap:
    at build time and serializes it into the page. A fresh browser sees exactly
    what is in `src/content/`.
 2. **Edit.** The island writes every change to
-   `localStorage['japan2026-plan-v3']`. Nothing is uploaded anywhere.
+   `localStorage['japan2026-plan-v4']`. Nothing is uploaded anywhere.
 3. **Export.** EXPORT downloads `japan2026-content.txt` — a delimited bundle
    of regenerated markdown, one `===== FILE: <path> =====` section each, plus
    `===== DELETED: <path> =====` lines and any warnings. Only the **active**
@@ -406,7 +441,10 @@ Three things hold this together, and breaking any of them loses data:
 - **A key set to the value it already has is a byte-level no-op**, so an
   untouched file exports identical. Which means dates must be written bare
   (`start: 2026-10-13`) the way they're authored, not quoted the way
-  `yamlScalar` would quote a leading digit.
+  `yamlScalar` would quote a leading digit — and `travelHours` the same,
+  emitted as `String(n)` over a minute-quantized two-decimal value (see
+  `src/lib/plan/hours.ts`), which is why the authored form must be JS
+  canonical.
 - **The round trip is asserted on every build.** `seedDoc` exports the
   committed plan immediately and requires the files back byte-identical,
   throwing like a duplicate slug does if not. A mismatch means EXPORT would
@@ -424,12 +462,15 @@ that becomes a gap has its segment file deleted.
 Day trips name their base by **city name**, so renaming a stop re-parents its
 day trips on export.
 
-**`localStorage` is versioned** (`japan2026-plan-v3`, the `STORE_KEY` in
+**`localStorage` is versioned** (`japan2026-plan-v4`, the `STORE_KEY` in
 `variants.ts`). Bump the suffix whenever `TripDoc`'s shape — or the store's —
 changes, or a stored document restores edits the current editor can't
 express: v1 carried loose ideas and a movable window, v2 was a single
-document with no proposals. A v2 payload still migrates in as the one main
-variant; anything older is refused. The island also refuses a store whose
+document with no proposals, v3 was the proposals wrapper from before stops
+carried `travelHours`. A v3 store migrates in whole (the new field is
+optional, so its documents pass the same validation with every transition
+unset), a v2 payload still migrates in as the one main variant; anything
+older is refused. The island also refuses a store whose
 window doesn't match the committed one, so a `trip.ts` edit can't be masked
 by old local state — and since every proposal branched under the same window,
 one bad variant condemns the whole store.
@@ -573,10 +614,14 @@ which looks exactly like "no map configured".
 
 - `doc.ts` — the `TripDoc` type and every mutation, as **pure functions**
   returning a new document (`resize`, `reorder`, `insertAt`, `deleteStop`,
-  `renameStop`, `toggleKind`, and `addTrip`/`moveTrip`/`deleteTrip`/
-  `renameTrip`). The interaction layer stays a thin shell over these, so the
-  logic is testable without a DOM — and call them through `commitDoc`'s
-  **updater** form wherever the result isn't needed, or two commits landing
+  `renameStop`, `toggleKind`, `setTravelHours`, and `addTrip`/`moveTrip`/
+  `deleteTrip`/`renameTrip`; `travelTotal` is the reader that sums a
+  schedule's `travelHours` over every stay but the first, with an
+  `incomplete` flag for unset transitions). The interaction layer stays a
+  thin shell over these, so the
+  logic is testable without a DOM — and call them through the commit
+  **updater** form (`commitVariant` in the island) wherever the result isn't
+  needed, or two commits landing
   before the next render drop the first. Also the day arithmetic:
   `toDayNumber`/`fromDayNumber` keep everything in UTC, and `hashDoc` digests
   only the content-derived parts (never hue or ids, so a rebuild doesn't read
@@ -586,32 +631,42 @@ which looks exactly like "no map configured".
   a `day` past the end of its parent and silently stops rendering.
 - `variants.ts` — proposals: the `PlanStore` that holds several `TripDoc`s
   side by side and knows which one is active, plus its pure verbs
-  (`duplicateActive`, `deleteVariant`, `renameVariant`, `makeActive`,
-  `updateActiveDoc`) and `decodeStore`, which validates a stored payload and
-  migrates the legacy single-document v2 key. Owns `STORE_KEY`
-  (`japan2026-plan-v3`). The doc mutations in `doc.ts` never know proposals
-  exist — everything routes through `updateActiveDoc`.
+  (`updateDoc` — edits address a variant by id, since every schedule is
+  editable in place; `duplicateActive` — the copy does NOT become active;
+  `deleteVariant`, `renameVariant`, `makeActive`, and `updateActiveDoc`,
+  which is `updateDoc` aimed at the active variant) and `decodeStore`, which
+  validates a stored payload and
+  migrates the legacy keys (the v3 store, then the single-document v2 key).
+  Owns `STORE_KEY` (`japan2026-plan-v4`) and `LEGACY_STORE_KEY` (v3, read for
+  migration, never written). The doc mutations in `doc.ts` never know
+  proposals exist — everything routes through `updateDoc`.
 - `seed.ts` — the committed content as a `TripDoc`, at build time. Runs of
   days no segment claims become real `kind: 'gap'` nodes so the timeline tiles
   the whole window. It also runs the **round-trip assertion** (below).
 - `frontmatter.ts` — surgical top-level key edits on a raw frontmatter block.
+- `hours.ts` — durations: `formatHours` ("5h 30m"), `parseHours` (whatever a
+  human types — "5:30", "2.5h", "90m", bare hours — quantized to whole
+  minutes and stored as two-decimal hours so `String(n)` never emits float
+  noise), and `formatTravelTotal`, the one spelling of the under-the-name
+  label PLAN and COMPARE share.
 - `export.ts` — the emitters, `exportPlan(doc)`, and `roundTripDiff`.
 - `PlanBoard.astro` — the wrapper: the seed in, the island out, and all the
   planner CSS in an `is:global` block (island DOM sits outside Astro's style
   scoping, same as `FilterBar`). `client:load`, not `client:visible` — the
   timeline *is* the page.
-- `PlanTimeline.tsx` — the island: day rail, stop bars, resize handles,
-  hatching, day-trip branch pills, persistence, the staleness banner, hash
-  sync, and EXPORT. Ported from the imported Claude Design component, whose
+- `PlanTimeline.tsx` — the island shell: the `PlanStore`, the selection,
+  persistence, the staleness banner, hash sync, EXPORT, and the PLAN |
+  COMPARE swap. Ported from the imported Claude Design component, whose
   runtime is React underneath, so its `state` became the `TripDoc` and its
-  bindings became ordinary props. Its state is the whole `PlanStore` since
-  proposals landed; the header's PLAN | COMPARE toggle swaps the timeline for
-  `ComparePane`, and every doc edit routes through `commitDoc` onto the
-  active variant.
-  Drag handlers attach their listeners to **`window`**, not the element — the
-  pointer leaves a one-day-wide bar constantly — and read the live document,
-  stop order and day width through refs, because they outlive the render that
-  created them.
+  bindings became ordinary props; the track itself has since moved to
+  `PlanTrack`. Every edit routes through `commitVariant(id)` onto
+  the variant that owns it; being active only decides what EXPORT writes and
+  what PLAN focuses on.
+  **Selection belongs to the PLAN view** — the detail pane is the only thing
+  that answers one, and the compare rows have no pane — so `sel` always names
+  a node in the ACTIVE document. Because a compare-row edit can delete the
+  very node it names, it is `resolves`d against that document every render
+  and falls back to `openingSel` rather than being kept in sync by hand.
   **A day is worth `trackW / total` pixels, not a constant.** A `ResizeObserver`
   on `.pl-scroll` measures its content box, the track takes that width exactly,
   and `MIN_TRACK` (1000px) is the floor below which the days stop shrinking and
@@ -619,19 +674,43 @@ which looks exactly like "no map configured".
   it excludes the gutters and doesn't grow with the track it scrolls, so a
   wider track can't feed back into the measurement. `ppd` is deliberately
   fractional — rounding it leaves a ragged strip at the right edge.
+  (ComparePane measures its own scroller the same way.)
+- `PlanTrack.tsx` — one editable timeline track: the optional day rail
+  (PLAN's; compare rows share the header's), stop bars, resize handles,
+  hatching, travel-time pills at each arriving stay's start boundary (they
+  claim lanes before the day-trip pills so they sit shallow, and clicking one
+  turns it into an input — the pill IS the travel-time editor, which is why
+  it works identically on a compare row), day-trip branch pills, and every
+  pointer interaction. Mounted once by the PLAN view and once per compare
+  row, each instance editing its own variant through the `commit` prop.
+  `sel`/`onSelect` are optional and absent on compare rows: with no pane
+  there, they have nothing to select for.
+  Drag handlers attach their listeners to **`window`**, not the element — the
+  pointer leaves a one-day-wide bar constantly — and read the live document,
+  stop order and day width through refs, because they outlive the render that
+  created them.
   A boundary's `+` is revealed by `.pl-handle`'s own hover, so the handle's
   box has to **contain** it — it reaches 28px above the bars via `padding-top`
   for exactly that reason. Move the button out of that box and it vanishes the
-  instant you reach for it.
-- `ComparePane.tsx` — the COMPARE view: one read-only row per proposed
-  schedule (stops, travel hatching, pinned day-trip pills — unpinned ones are
-  editing furniture and don't draw), a sticky 232px name gutter, and the
-  variant verbs (rename, MAKE MAIN PLAN, DELETE, `+ NEW PROPOSAL`). The
-  fixed window means every row is the same length, so the imported design's
+  instant you reach for it. (That reach is also why `.pl-cmp-lane` pads its
+  top: in a compare row the handles would otherwise poke into the row above.)
+- `ComparePane.tsx` — the COMPARE view: one **live, editable** row per
+  proposed schedule. Each lane mounts a `PlanTrack` (passed in as a render
+  prop, wired to its own variant) beside a sticky 232px name gutter carrying
+  the schedule's travel total and the variant verbs (rename, MAKE MAIN PLAN,
+  DELETE, `+ NEW PROPOSAL`). **The rows stay compact — no detail pane**, by
+  decision: this screen reads schedules against each other, so it offers only
+  the edits the track itself carries. The MAIN badge marks the
+  schedule EXPORT writes and PLAN focuses on; it has no monopoly on editing.
+  The fixed window means every row is the same length, so the imported
+  design's
   "+2 DAYS" delta has no equivalent here on purpose. The gutter width is
   duplicated between `GUTTER_W` and `.pl-cmp-gutter` — keep them agreeing.
-- `DetailPane.tsx` — the pane below: name, dates, the travel toggle, and the
-  day-trip chips. `IdeaEditor.tsx` sat beside it and is gone with ideas.
+- `DetailPane.tsx` — the pane below the PLAN track (and only there): name,
+  dates, the travel toggle, and the day-trip chips. No travel-time input —
+  that lives on the pill, so the number is typed where it is drawn and one
+  editor serves both views. `IdeaEditor.tsx` sat beside it and is gone with
+  ideas.
 
 ### Shared components
 

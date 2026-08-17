@@ -3,6 +3,7 @@ city: Tokyo
 cityJa: "東京"
 start: 2026-10-26
 end: 2026-10-26
+travelHours: 2.5
 arrive:
   - mode: train
     text: Tokaido Shinkansen · Shin-Osaka → Tokyo · ~2h 30m

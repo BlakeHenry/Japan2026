@@ -88,6 +88,13 @@ function segmentFile(stop: PlanStop, doc: TripDoc, index: number): string {
   fm = setKey(fm, 'city', yamlScalar(stop.name));
   fm = setKey(fm, 'start', start, 'cityJa');
   fm = setKey(fm, 'end', end, 'start');
+  // Bare like the dates, and `String(n)` exactly: the value is minute-
+  // quantized two-decimal hours (see hours.ts), so this reproduces the
+  // authored form (0.5, 2.5) byte for byte.
+  fm =
+    stop.travelHours === undefined
+      ? removeKey(fm, 'travelHours')
+      : setKey(fm, 'travelHours', String(stop.travelHours), 'end');
 
   return joinMarkdown({
     frontmatter: fm,

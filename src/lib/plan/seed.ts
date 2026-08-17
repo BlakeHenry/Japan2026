@@ -112,6 +112,7 @@ export function seedDoc(itinerary: Itinerary): TripDoc {
       name: data.city,
       cityJa: data.cityJa,
       days,
+      travelHours: data.travelHours,
       hue: hueAt(hueIndex++),
       trips,
     });

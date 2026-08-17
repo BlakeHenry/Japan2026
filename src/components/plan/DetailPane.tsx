@@ -15,6 +15,12 @@
  * Everything the old city panels carried — lodging, the arrive/depart legs,
  * the hero photo — is deliberately not here either; those fields still live in
  * the markdown and still round-trip through export, they just aren't drawn.
+ * Travel times aren't here either: a pill on the timeline is its own editor,
+ * so the number is typed where it is drawn and the compare rows can carry it
+ * without dragging a pane along.
+ *
+ * **This pane is the PLAN view's alone.** The compare rows are for reading
+ * schedules side by side, so they stay compact and draw none of this.
  */
 
 import type { TripDoc } from '../../lib/plan/doc';
