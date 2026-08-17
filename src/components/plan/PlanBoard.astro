@@ -94,6 +94,20 @@ const { seed } = Astro.props;
     letter-spacing: -0.02em;
   }
 
+  .pl-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* The travel-time sum — under the schedule's name in PLAN and COMPARE. */
+  .pl-total {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--pl-ink-mute);
+  }
+
   .pl-head-actions {
     margin-left: auto;
     display: flex;
@@ -470,6 +484,60 @@ const { seed } = Astro.props;
     color: #2a2f3a;
   }
 
+  /* Travel time to get to a stay — hangs at the stay's start boundary in the
+     branches band, same grammar as a day-trip pill: dot, connector, pill.
+     Neutral grey (a transition belongs to no city) and mono (it's a number);
+     dashed is the register's word for "nobody has an estimate yet". */
+  .pl-travel {
+    position: absolute;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translateX(-50%);
+    cursor: pointer;
+    z-index: 3; /* over .pl-zone (2), same layer as .pl-branch */
+  }
+
+  .pl-travel-pill {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--pl-ink-soft);
+    background: #fff;
+    border: 1px solid #dbdfe8;
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    outline-offset: 2px;
+  }
+
+  .pl-travel-pill-off {
+    border: 1.5px dashed #c8cdd8;
+    color: var(--pl-ink-faint);
+  }
+
+  .pl-travel:hover .pl-travel-pill {
+    border-color: var(--pl-accent);
+    color: var(--pl-accent-deep);
+  }
+
+  /* The pill IS the editor — click it and it becomes this. Sized like the
+     pill it replaces so the row doesn't jump, and mono like the number. */
+  .pl-travel-input {
+    font-family: var(--pl-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--pl-ink);
+    background: #fff;
+    border: 1px solid var(--pl-accent);
+    border-radius: 999px;
+    padding: 4px 10px;
+    width: 78px;
+    text-align: center;
+    outline: none;
+  }
+
   /* --- Compare ------------------------------------------------------------ */
   /* One row per proposed schedule, read-only; the name gutter is sticky so a
      row stays labelled while the day lane scrolls under it. Widths that the
@@ -618,75 +686,19 @@ const { seed } = Astro.props;
     background: #fff;
   }
 
+  /* A lane hosts a full PlanTrack — the same editor PLAN zooms in on. The
+     top padding (plus .pl-bars' own 8px margin) is the headroom the resize
+     handles reach into: they extend 28px above the bars, and without this
+     they'd poke into the row above. */
   .pl-cmp-lane {
     position: relative;
     flex: none;
-    cursor: pointer;
+    padding: 26px 0 8px;
   }
 
-  .pl-cmp-seg {
-    position: absolute;
-    top: 16px;
-    height: 52px;
-    border-radius: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 10px;
-    overflow: hidden;
-  }
-
-  .pl-cmp-seg-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: #1c2027;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .pl-cmp-hatch {
-    position: absolute;
-    top: 16px;
-    height: 52px;
-    border-radius: 11px;
-    pointer-events: none;
-    background: var(--pl-hatch-fill);
-  }
-
-  /* A row's day-trip pills are markers, not controls: clicks fall through to
-     the row's one action, activating the schedule. */
-  .pl-cmp-pillstack {
-    position: absolute;
-    top: 68px;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    pointer-events: none;
-  }
-
-  .pl-cmp-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    margin-top: -3px;
-  }
-
-  .pl-cmp-conn {
-    height: 8px;
-  }
-
-  .pl-cmp-pill {
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: #fff;
-    border: 1px solid #dbdfe8;
-    white-space: nowrap;
-    font-size: 10px;
-    font-weight: 600;
-    color: #2a2f3a;
-  }
+  /* No detail pane on this screen: the compare rows are for reading
+     schedules against each other, so every edit they offer is one you make
+     on the track itself. */
 
   .pl-cmp-foot {
     background: var(--pl-field);
@@ -826,6 +838,7 @@ const { seed } = Astro.props;
   .pl-chip-tag-off {
     color: #a7adba;
   }
+
 
   @media (max-width: 700px) {
     .pl-head,

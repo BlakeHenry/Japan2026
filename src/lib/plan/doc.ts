@@ -25,7 +25,7 @@ export const DAY_MS = 86_400_000;
 
 /**
  * The LEGACY localStorage key, from when the store was a single TripDoc. The
- * live key is `STORE_KEY` in variants.ts (v3, the proposals wrapper); this
+ * live key is `STORE_KEY` in variants.ts (the proposals wrapper); this
  * one is only read for migration, never written. The rule carries over: bump
  * the live key's suffix when TripDoc's shape — or the store's — changes, or a
  * stored document restores edits the current editor can't express.
@@ -73,6 +73,16 @@ export interface PlanStop {
   name: string;
   cityJa?: string;
   days: number;
+  /**
+   * Door-to-door hours to GET HERE from the previous stop — the in-Japan
+   * transition the timeline draws as a pill at this stay's start boundary,
+   * and what the per-schedule travel total sums. Decimal hours, quantized to
+   * whole minutes (see hours.ts). Meaningless on the trip's first stay (that
+   * arrival is the international flight, which stays on the undrawn `arrive`
+   * legs) and on gaps: both are hidden and excluded from totals rather than
+   * cleared, so a reorder can't silently destroy an estimate.
+   */
+  travelHours?: number;
   /** Golden-angle hue, so a new stop never collides with its neighbours. */
   hue: number;
   trips: PlanDayTrip[];
@@ -146,6 +156,37 @@ export function stopAtDay(
 export const dateAt = (doc: TripDoc, day: number): string =>
   fromDayNumber(toDayNumber(doc.window.start) + day);
 
+export interface TravelTotal {
+  hours: number;
+  /** True when a counted stay has no estimate — the sum is an undercount. */
+  incomplete: boolean;
+  /** False when no stay qualifies (≤1 stay), so callers draw nothing. */
+  relevant: boolean;
+}
+
+/**
+ * The schedule's total in-Japan travel: `travelHours` summed over every stay
+ * EXCEPT the first, whose arrival is the long-haul flight — the same in every
+ * proposal, so counting it would just pad each total by a constant.
+ */
+export function travelTotal(stops: PlanStop[]): TravelTotal {
+  let hours = 0;
+  let incomplete = false;
+  let counted = 0;
+  let seenStay = false;
+  for (const s of stops) {
+    if (s.kind !== 'stay') continue;
+    if (!seenStay) {
+      seenStay = true;
+      continue;
+    }
+    counted++;
+    if (s.travelHours === undefined) incomplete = true;
+    else hours += s.travelHours;
+  }
+  return { hours, incomplete, relevant: counted > 0 };
+}
+
 export const nextHue = (doc: TripDoc): number =>
   (doc.baseHue + doc.hueCount * 137.508) % 360;
 
@@ -162,6 +203,7 @@ export function hashDoc(doc: Pick<TripDoc, 'window' | 'stops'>): string {
       s.name,
       s.cityJa ?? '',
       s.days,
+      s.travelHours ?? null,
       s.trips.map((t) => [t.name, t.day]),
       s.source?.path ?? '',
     ]),
@@ -301,6 +343,19 @@ export function toggleKind(doc: TripDoc, id: string): TripDoc {
   const s = next.stops.find((x) => x.id === id);
   if (!s) return doc;
   s.kind = s.kind === 'gap' ? 'stay' : 'gap';
+  // Deliberately keeps `travelHours`: a stay flipped to travel and back keeps
+  // its estimate, the same way it keeps its `source`. A gap just doesn't draw
+  // or export it.
+  return next;
+}
+
+/** Set or clear (null) the hours it takes to get to this stop. */
+export function setTravelHours(doc: TripDoc, id: string, hours: number | null): TripDoc {
+  const next = clone(doc);
+  const s = next.stops.find((x) => x.id === id);
+  if (!s) return doc;
+  if (hours === null || !(hours > 0)) delete s.travelHours;
+  else s.travelHours = Math.min(24, Math.round(hours * 100) / 100);
   return next;
 }
 

@@ -96,6 +96,15 @@ const segments = defineCollection({
         city: z.string(),
         start: z.coerce.date(),
         end: z.coerce.date(),
+        // Door-to-door hours to get HERE from the previous stop — the one
+        // transit fact /overview/ draws (a pill at the stay's start boundary,
+        // plus the per-schedule totals). Decimal hours, authored BARE and in
+        // JS canonical number form (0.5, 2.5, 3) — export emits `String(n)`,
+        // so any other spelling fails the round-trip assertion. Never on the
+        // first segment (that arrival is the international flight, which
+        // stays on `arrive`); omit while the route between two cities is
+        // still unchosen and the timeline shows a dashed placeholder.
+        travelHours: z.number().positive().max(24).optional(),
         // Optional: a stay with nowhere booked yet still belongs on the
         // itinerary, and the card says so rather than disappearing.
         lodging: z

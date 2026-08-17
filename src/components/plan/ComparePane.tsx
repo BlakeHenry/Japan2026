@@ -1,11 +1,21 @@
 /**
- * COMPARE — every proposed schedule on one screen, one row per variant.
+ * COMPARE — every proposed schedule on one screen, one row per variant, and
+ * **every row is a live editor**. Each lane mounts the same PlanTrack the
+ * PLAN view uses: drag a bar to reorder, drag a boundary to move a day,
+ * double-click to rename, add day trips, click a travel pill to set the
+ * hours. There is no selecting a schedule to edit somewhere else — you edit
+ * it where it lies.
  *
- * The rows are read-only: this view is for looking and choosing, so a row
- * draws its stops, travel hatching and pinned day trips at a glance but edits
- * nothing except the variant itself — rename it, make it the main plan,
- * delete it, or duplicate the active one into a new proposal. All actual
- * planning happens back in PLAN mode, on whichever variant is active.
+ * **The rows stay compact.** This screen is for reading schedules against
+ * each other — where the days go, and what the travelling costs — so it
+ * draws no detail pane: every edit it offers is one you make on the track
+ * itself. The pane, and the whole-stop verbs that live in it (mark a stretch
+ * as travel days, delete a day trip), belong to the PLAN view.
+ *
+ * What "MAKE MAIN PLAN" still means: the main (active) schedule is the one
+ * EXPORT writes back to content, the one the stale banner compares against
+ * the committed seed, and the one the PLAN view zooms in on. It wears the
+ * MAIN badge and the accent edge; it has no monopoly on editing.
  *
  * Same width contract as the timeline: the day lane takes what the viewport
  * can spare down to MIN_LANE, then the whole table scrolls sideways. The name
@@ -16,9 +26,10 @@
  * had one): the only thing that can differ is how the days are spent.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PlanVariant } from '../../lib/plan/variants';
-import { dateAt, startOf, totalDays } from '../../lib/plan/doc';
+import { dateAt, totalDays, travelTotal } from '../../lib/plan/doc';
+import { formatTravelTotal } from '../../lib/plan/hours';
 import { formatDay } from './DetailPane';
 
 /** Must match `.pl-cmp-gutter`'s width — the lane gets what's left of it. */
@@ -34,6 +45,8 @@ interface Props {
   onDuplicate: () => string;
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
+  /** The editable track for a row — a PlanTrack wired to this variant. */
+  row: (v: PlanVariant, laneW: number) => ReactNode;
 }
 
 export default function ComparePane(props: Props) {
@@ -97,20 +110,9 @@ export default function ComparePane(props: Props) {
         {variants.map((v) => {
           const isActive = v.id === activeId;
           const isEditing = editingId === v.id;
-          const stops = v.doc.stops;
-          // Only pinned trips draw: an unscheduled pill hanging mid-bar is
-          // useful while editing, but in a row this short it is just clutter.
-          const pills = stops.flatMap((s, i) => {
-            const from = startOf(stops, i);
-            return s.trips
-              .filter((t) => t.day !== null && t.day >= 0 && t.day < s.days)
-              .map((t) => ({
-                id: t.id,
-                name: t.name,
-                left: (from + t.day!) * ppd + ppd / 2,
-                hue: `oklch(0.6 0.14 ${s.hue.toFixed(1)})`,
-              }));
-          });
+          // What choosing between schedules actually weighs: the hours spent
+          // getting between stops. Null when there's nothing to count.
+          const travelLabel = formatTravelTotal(travelTotal(v.doc.stops));
           return (
             <div key={v.id} className={isActive ? 'pl-cmp-row pl-cmp-row-on' : 'pl-cmp-row'}>
               <div className="pl-cmp-gutter">
@@ -139,14 +141,29 @@ export default function ComparePane(props: Props) {
                       {v.name}
                     </span>
                   )}
-                  {isActive && <span className="pl-cmp-badge">EDITING</span>}
+                  {isActive && (
+                    <span
+                      className="pl-cmp-badge"
+                      title="The main plan — EXPORT writes it, PLAN focuses on it"
+                    >
+                      MAIN
+                    </span>
+                  )}
                 </div>
+                {travelLabel && (
+                  <span
+                    className="pl-total"
+                    title="Total travel between stops in Japan — the flights in and home aren't counted"
+                  >
+                    TRAVEL {travelLabel}
+                  </span>
+                )}
                 <div className="pl-cmp-acts">
                   {!isActive && (
                     <button
                       type="button"
                       className="pl-btn pl-btn-sm"
-                      title="Make this the main plan you edit"
+                      title="Make this the main plan — EXPORT writes it, PLAN focuses on it"
                       onClick={() => props.onActivate(v.id)}
                     >
                       MAKE MAIN PLAN
@@ -164,47 +181,8 @@ export default function ComparePane(props: Props) {
                   )}
                 </div>
               </div>
-              <div
-                className="pl-cmp-lane"
-                style={{ width: laneW, height: pills.length > 0 ? 122 : 88, backgroundImage: tick }}
-                title={isActive ? undefined : 'Make this the main plan you edit'}
-                onClick={() => props.onActivate(v.id)}
-              >
-                {stops.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className="pl-cmp-seg"
-                    style={{
-                      left: startOf(stops, i) * ppd + 2,
-                      width: s.days * ppd - 4,
-                      background:
-                        s.kind === 'gap'
-                          ? 'oklch(0.89 0.008 260)'
-                          : `oklch(0.9 0.06 ${s.hue.toFixed(1)})`,
-                    }}
-                  >
-                    {/* Same rule as the timeline: a travel bar wears its
-                        hatching and nothing else — a gap's name is internal,
-                        so the hatch says all of it. */}
-                    {s.kind !== 'gap' && <span className="pl-cmp-seg-name">{s.name}</span>}
-                  </div>
-                ))}
-                {stops.map((s, i) =>
-                  s.kind === 'gap' ? (
-                    <div
-                      key={`hatch-${s.id}`}
-                      className="pl-cmp-hatch"
-                      style={{ left: startOf(stops, i) * ppd + 2, width: s.days * ppd - 4 }}
-                    />
-                  ) : null
-                )}
-                {pills.map((p) => (
-                  <div key={p.id} className="pl-cmp-pillstack" style={{ left: p.left }}>
-                    <span className="pl-cmp-dot" style={{ background: p.hue }} />
-                    <span className="pl-cmp-conn" style={{ borderLeft: `1.5px solid ${p.hue}` }} />
-                    <span className="pl-cmp-pill">{p.name}</span>
-                  </div>
-                ))}
+              <div className="pl-cmp-lane" style={{ width: laneW, backgroundImage: tick }}>
+                {props.row(v, laneW)}
               </div>
             </div>
           );
@@ -215,7 +193,7 @@ export default function ComparePane(props: Props) {
             <button
               type="button"
               className="pl-cmp-add"
-              title="Duplicate the schedule you are editing into a new proposal"
+              title="Duplicate the main plan into a new proposal"
               onClick={() => setEditingId(props.onDuplicate())}
             >
               + NEW PROPOSAL

@@ -29,12 +29,20 @@ export interface PlanStore {
 }
 
 /**
- * The live localStorage key. v1 and v2 held a single TripDoc; v3 holds the
- * variants wrapper. Bump the suffix whenever this shape — or TripDoc's —
- * changes, or a stored document restores edits the current editor can't
- * express. doc.ts still exports the v2 key so `decodeStore` can migrate it.
+ * The live localStorage key. v1 and v2 held a single TripDoc; v3 was the
+ * variants wrapper from before stops carried `travelHours`; v4 is current.
+ * Bump the suffix whenever this shape — or TripDoc's — changes, or a stored
+ * document restores edits the current editor can't express. doc.ts still
+ * exports the v2 key so `decodeStore` can migrate it.
  */
-export const STORE_KEY = 'japan2026-plan-v3';
+export const STORE_KEY = 'japan2026-plan-v4';
+
+/**
+ * The previous store key — same wrapper shape, its documents just predate
+ * `travelHours` (optional, so they validate as-is and migrate in with every
+ * transition unset). Read for migration, never written.
+ */
+export const LEGACY_STORE_KEY = 'japan2026-plan-v3';
 
 /** The seeded variant's id and name. Deterministic, so SSR and reload agree. */
 const MAIN_ID = 'main';
@@ -52,18 +60,33 @@ export const seedStore = (seed: TripDoc): PlanStore => ({
   variants: [{ id: MAIN_ID, name: MAIN_NAME, doc: seed }],
 });
 
-/** Replace the active variant's document; the doc mutations stay doc-shaped. */
+/**
+ * Replace one variant's document; the doc mutations stay doc-shaped. Every
+ * schedule is editable in place on the compare view, so edits address a
+ * variant by id — being active only decides what EXPORT writes and what the
+ * PLAN view focuses on, not what may be edited.
+ */
+export function updateDoc(
+  store: PlanStore,
+  id: string,
+  next: TripDoc | ((doc: TripDoc) => TripDoc)
+): PlanStore {
+  const target = store.variants.find((v) => v.id === id);
+  if (!target) return store;
+  const doc = typeof next === 'function' ? next(target.doc) : next;
+  if (doc === target.doc) return store;
+  return {
+    ...store,
+    variants: store.variants.map((v) => (v.id === id ? { ...v, doc } : v)),
+  };
+}
+
+/** `updateDoc` aimed at the active variant — what RESET and migration use. */
 export function updateActiveDoc(
   store: PlanStore,
   next: TripDoc | ((doc: TripDoc) => TripDoc)
 ): PlanStore {
-  const active = activeVariant(store);
-  const doc = typeof next === 'function' ? next(active.doc) : next;
-  if (doc === active.doc) return store;
-  return {
-    ...store,
-    variants: store.variants.map((v) => (v.id === active.id ? { ...v, doc } : v)),
-  };
+  return updateDoc(store, activeVariant(store).id, next);
 }
 
 /** "Option A", "Option B" … the first letter no proposal is already wearing. */
@@ -77,10 +100,12 @@ function nextName(store: PlanStore): string {
 }
 
 /**
- * A new proposal is always a copy of the schedule being edited — a blank one
- * would just be the fixed window with nothing to compare. The copy lands
- * right after its source and becomes active, so "+ NEW PROPOSAL" reads as
- * "branch what I have and keep going".
+ * A new proposal is always a copy of the main plan — a blank one would just
+ * be the fixed window with nothing to compare. The copy lands right after
+ * its source and is immediately editable in place like every row, but it
+ * does NOT become the main plan: EXPORT keeps writing what it wrote until
+ * MAKE MAIN PLAN says otherwise. (It used to activate the copy, back when
+ * editing required being active.)
  */
 export function duplicateActive(store: PlanStore): { store: PlanStore; id: string } {
   const src = activeVariant(store);
@@ -88,7 +113,7 @@ export function duplicateActive(store: PlanStore): { store: PlanStore; id: strin
   const copy: PlanVariant = { id, name: nextName(store), doc: structuredClone(src.doc) };
   const variants = store.variants.slice();
   variants.splice(variants.findIndex((v) => v.id === src.id) + 1, 0, copy);
-  return { store: { ...store, variants, activeId: id }, id };
+  return { store: { ...store, variants }, id };
 }
 
 /** The last variant can't go — the plan page always has a plan to show. */
@@ -131,17 +156,23 @@ const isValidDoc = (doc: TripDoc | undefined, seed: TripDoc): boolean =>
 
 /**
  * Parse whatever localStorage holds into a PlanStore, or null to keep the
- * seed. `rawLegacy` is the v2 payload — a bare TripDoc from before proposals
- * existed — which migrates in as the single main variant.
+ * seed. Keys are tried newest first: the live v4 store, then the v3 store —
+ * the SAME wrapper validation, since a v3 document differs only in lacking
+ * the optional `travelHours` — then `rawLegacyDoc`, the v2 payload — a bare
+ * TripDoc from before proposals existed — which migrates in as the single
+ * main variant. A migrated store is rewritten under the live key by the
+ * island's persistence effect.
  */
 export function decodeStore(
   rawStore: string | null,
-  rawLegacy: string | null,
+  rawLegacyStore: string | null,
+  rawLegacyDoc: string | null,
   seed: TripDoc
 ): PlanStore | null {
-  try {
-    if (rawStore) {
-      const saved = JSON.parse(rawStore) as PlanStore;
+  for (const raw of [rawStore, rawLegacyStore]) {
+    try {
+      if (!raw) continue;
+      const saved = JSON.parse(raw) as PlanStore;
       if (
         saved?.version === 1 &&
         Array.isArray(saved.variants) &&
@@ -156,13 +187,13 @@ export function decodeStore(
           : saved.variants[0].id;
         return { version: 1, activeId, variants: saved.variants };
       }
+    } catch {
+      /* Corrupt store — fall through and try the next key down. */
     }
-  } catch {
-    /* Corrupt store — fall through and try the legacy key. */
   }
   try {
-    if (rawLegacy) {
-      const doc = JSON.parse(rawLegacy) as TripDoc;
+    if (rawLegacyDoc) {
+      const doc = JSON.parse(rawLegacyDoc) as TripDoc;
       if (isValidDoc(doc, seed)) {
         return { version: 1, activeId: MAIN_ID, variants: [{ id: MAIN_ID, name: MAIN_NAME, doc }] };
       }
