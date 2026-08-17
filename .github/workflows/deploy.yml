@@ -25,6 +25,10 @@ jobs:
           # Keep in sync with the packageManager field in package.json —
           # without this the action installs whatever "latest" is that day.
           package-manager: pnpm@11.20.0
+          # pnpm 11.20.0 requires Node >=22.13; ubuntu-latest's default
+          # runtime (20.x) is too old and pnpm fails before anything else
+          # runs ("No such built-in module: node:sqlite").
+          node-version: 22
         env:
           # Injected at build time so the key never lives in the repo. It IS
           # still present in the built output — the Maps JS SDK runs in the
