@@ -1,6 +1,7 @@
 ---
 name: Ito
 parent: Tokyo
+date: 2026-10-15
 cityJa: "伊東"
 note: onsen day on the Izu coast
 there:
