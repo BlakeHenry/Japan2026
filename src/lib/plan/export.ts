@@ -14,12 +14,18 @@
  *
  * Only `src/content/**.md` is ever written. The trip window is fixed, so no
  * export touches code.
+ *
+ * The proposals ride along too: `exportStore` wraps `exportPlan` and adds one
+ * machine-written snapshot file (`src/content/proposals.md`) carrying every
+ * non-active variant, so committed proposals survive a fresh browser.
  */
 
 import { citySlug } from '../itinerary';
 import type { PlanDayTrip, PlanStop, SourceFile, TripDoc } from './doc';
 import { dateAt, startOf } from './doc';
 import { joinMarkdown, removeKey, setKey, yamlScalar } from './frontmatter';
+import type { PlanStore, PlanVariant } from './variants';
+import { activeVariant } from './variants';
 
 export const FILE_MARK = '===== FILE: ';
 export const DELETE_MARK = '===== DELETED: ';
@@ -239,7 +245,7 @@ export function roundTripDiff(doc: TripDoc): string[] {
 }
 
 /** The first line that differs, so a failure names the key rather than the file. */
-function firstDiff(before: string, after: string): string {
+export function firstDiff(before: string, after: string): string {
   const a = before.split('\n');
   const b = after.split('\n');
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
@@ -248,6 +254,90 @@ function firstDiff(before: string, after: string): string {
     }
   }
   return '    (files differ only in trailing whitespace)';
+}
+
+// --- The proposals snapshot --------------------------------------------------
+// One committed file for every schedule that ISN'T the main plan, so proposals
+// survive export → commit → fresh browser. Machine-written only: a fixed
+// header, then the variants as pretty-printed JSON. JSON escapes every newline
+// in the docs' embedded markdown, so no line of this file can collide with the
+// bundle's `===== FILE:` markers.
+
+export const PROPOSALS_PATH = 'src/content/proposals.md';
+
+// Brace-free on purpose: the parser finds the JSON at the first `{`.
+const PROPOSALS_HEADER =
+  [
+    '# Japan 2026 — proposed schedules',
+    '#',
+    "# Machine-written by /overview/'s EXPORT: every schedule on the compare",
+    '# view except the main plan, committed so a fresh browser seeds them back.',
+    '# Do not edit by hand. Delete the file to drop every committed proposal.',
+  ].join('\n') + '\n\n';
+
+/**
+ * The one serializer — the browser writes the snapshot with it, and
+ * `seedProposals` asserts the committed file re-emits byte-identical.
+ * Deterministic because `JSON.stringify ∘ JSON.parse` is idempotent on
+ * `JSON.stringify` output; ids and names pass through verbatim so re-seeds
+ * are stable.
+ */
+export function renderProposalsFile(proposals: PlanVariant[]): string {
+  const payload = {
+    version: 1,
+    proposals: proposals.map(({ id, name, doc }) => ({ id, name, doc })),
+  };
+  return `${PROPOSALS_HEADER}${JSON.stringify(payload, null, 2)}\n`;
+}
+
+/**
+ * Structural parse of a committed snapshot; throws naming what's wrong.
+ * Whether each doc still fits the trip window is the caller's (seed's) check.
+ */
+export function parseProposalsFile(raw: string): { version: 1; proposals: PlanVariant[] } {
+  const at = raw.indexOf('{');
+  if (at === -1) throw new Error(`[plan] ${PROPOSALS_PATH} has no JSON payload`);
+  let payload: { version?: unknown; proposals?: unknown };
+  try {
+    payload = JSON.parse(raw.slice(at));
+  } catch (e) {
+    throw new Error(`[plan] ${PROPOSALS_PATH} is not valid JSON: ${(e as Error).message}`);
+  }
+  if (payload?.version !== 1 || !Array.isArray(payload.proposals)) {
+    throw new Error(`[plan] ${PROPOSALS_PATH} is not a version-1 proposals snapshot`);
+  }
+  for (const v of payload.proposals as PlanVariant[]) {
+    if (typeof v?.id !== 'string' || typeof v?.name !== 'string' || typeof v?.doc !== 'object') {
+      throw new Error(`[plan] ${PROPOSALS_PATH} has a malformed proposal entry`);
+    }
+  }
+  return { version: 1, proposals: payload.proposals as PlanVariant[] };
+}
+
+/**
+ * `exportPlan` on the active schedule, plus the proposals snapshot — or its
+ * deletion, when the last proposal went and the committed file still exists
+ * (`committedProposalsFile`, which seed answers at build time).
+ */
+export function exportStore(store: PlanStore, committedProposalsFile: boolean): ExportResult {
+  const active = activeVariant(store);
+  const plan = exportPlan(active.doc);
+  const proposals = store.variants.filter((v) => v.id !== active.id);
+  const files = plan.files.slice();
+  const deleted = plan.deleted.slice();
+  if (proposals.length > 0) {
+    files.push({ path: PROPOSALS_PATH, contents: renderProposalsFile(proposals) });
+    files.sort((a, b) => a.path.localeCompare(b.path));
+  } else if (committedProposalsFile) {
+    deleted.push(PROPOSALS_PATH);
+    deleted.sort();
+  }
+  return {
+    files,
+    deleted,
+    warnings: plan.warnings,
+    bundle: renderBundle(files, deleted, plan.warnings),
+  };
 }
 
 function renderBundle(

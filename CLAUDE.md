@@ -27,14 +27,16 @@ A static Astro site in three layers:
   under each name. There is no selecting a schedule to edit somewhere else:
   you edit it where it lies. `+ NEW PROPOSAL` branches the
   main plan without promoting the copy; MAKE MAIN PLAN switches which
-  schedule EXPORT writes and the PLAN view zooms in on — being main is about
-  export, never about editing. Proposals are localStorage-only working
-  state — only the main schedule ever exports, and a fresh browser has
-  exactly one, seeded from the committed content.
+  schedule EXPORT writes as markdown and the PLAN view zooms in on — being
+  main is about export, never about editing. Proposals export too, as one
+  machine-written snapshot (`src/content/proposals.md`) riding the same
+  bundle, so a fresh browser seeds the main plan from the committed content
+  plus whatever proposals the snapshot carries.
   **The compare rows stay compact, and draw no pane.** That screen is for
   reading schedules against each other, so it offers only edits you make on
-  the track itself. The pane and its whole-stop verbs — mark a stretch as
-  travel days, delete a day trip — are the PLAN view's.
+  the track itself — which includes deleting a day trip, via the `×` on its
+  pill. The pane and its whole-stop verb — mark a stretch as travel days —
+  is the PLAN view's.
   **The track fills the window**, so a wide screen gets fat day columns; below
   about 1070px it stops shrinking and scrolls sideways instead.
   **A travel day is a stop, not a flag on a day.** Insert one and mark it as
@@ -407,15 +409,17 @@ Rules:
 that gap:
 
 1. **Seed.** `seedDoc(itinerary)` turns the committed content into a `TripDoc`
-   at build time and serializes it into the page. A fresh browser sees exactly
-   what is in `src/content/`.
+   at build time and serializes it into the page, and `seedProposals(seed)`
+   decodes `src/content/proposals.md` (if committed) into proposal variants
+   beside it. A fresh browser sees exactly what is in `src/content/`.
 2. **Edit.** The island writes every change to
    `localStorage['japan2026-plan-v4']`. Nothing is uploaded anywhere.
 3. **Export.** EXPORT downloads `japan2026-content.txt` — a delimited bundle
    of regenerated markdown, one `===== FILE: <path> =====` section each, plus
-   `===== DELETED: <path> =====` lines and any warnings. Only the **active**
-   schedule exports; proposals on the compare view are drafts and never touch
-   a bundle.
+   `===== DELETED: <path> =====` lines and any warnings. The **active**
+   schedule exports as markdown; the other schedules ride along as the one
+   proposals snapshot (`exportStore` wraps `exportPlan`), with a DELETED line
+   for it when the last proposal went and the file was committed.
 4. **Apply.** `pnpm plan:apply <file>` writes the bundle back onto disk.
    Then `pnpm build` to validate. It refuses any path outside
    `src/content/**.md`, because the bundle is a downloaded file.
@@ -428,6 +432,18 @@ The plan document covers **segments and day trips**. Reservations
 (`src/content/stops/`) are not in it, so a bundle never writes or deletes
 one — which also means the round-trip assertion below has nothing to say
 about them.
+
+**The proposals snapshot is machine state, deliberately.**
+`src/content/proposals.md` is a fixed `#`-comment header plus the non-active
+variants as pretty-printed JSON, written only by EXPORT — don't edit it by
+hand (delete it to drop every committed proposal). It sits outside every
+content-collection glob base, so Astro never loads it as content; the seed
+reads it through the same raw-file glob the markdown sources use. Its
+byte-stability is asserted at build time exactly like the markdown round
+trip: `seedProposals` re-emits the committed file and fails the build on any
+difference, and it fails just as hard on a malformed file or one whose
+window no longer matches `trip.ts` — warn-and-drop would let the next export
+silently delete committed proposals.
 
 Three things hold this together, and breaking any of them loses data:
 
@@ -473,7 +489,12 @@ unset), a v2 payload still migrates in as the one main variant; anything
 older is refused. The island also refuses a store whose
 window doesn't match the committed one, so a `trip.ts` edit can't be masked
 by old local state — and since every proposal branched under the same window,
-one bad variant condemns the whole store.
+one bad variant condemns the whole store. A valid local store still wins
+**wholesale** over the seed, and the stale banner speaks only about the main
+schedule — so newly *committed* proposals don't surface to a browser that
+already has local state until that state is cleared. Accepted tradeoff, not
+a gap: detecting it would need a second hash and a second banner voice for a
+rare event.
 
 ## Commands
 
@@ -650,18 +671,31 @@ which looks exactly like "no map configured".
   validates a stored payload and
   migrates the legacy keys (the v3 store, then the single-document v2 key).
   Owns `STORE_KEY` (`japan2026-plan-v4`) and `LEGACY_STORE_KEY` (v3, read for
-  migration, never written). The doc mutations in `doc.ts` never know
-  proposals exist — everything routes through `updateDoc`.
+  migration, never written). `seedStore(seed, proposals)` builds the fresh
+  store — main variant from content plus the snapshot's variants, suffixing
+  the main id (`main-2`, …) if a demoted ex-main in the snapshot still wears
+  `main`: the file's ids are never rewritten, which is what keeps successive
+  exports byte-stable. `isValidStoredDoc` is the shared window check
+  (`decodeStore` and `seedProposals` both use it). The doc mutations in
+  `doc.ts` never know proposals exist — everything routes through
+  `updateDoc`.
 - `seed.ts` — the committed content as a `TripDoc`, at build time. Runs of
   days no segment claims become real `kind: 'gap'` nodes so the timeline tiles
-  the whole window. It also runs the **round-trip assertion** (below).
+  the whole window. It also runs the **round-trip assertion** (below), and
+  `seedProposals(seed)` decodes + fail-hard-validates the committed proposals
+  snapshot (returning `filePresent`, which is what lets EXPORT emit the
+  snapshot's DELETED line).
 - `frontmatter.ts` — surgical top-level key edits on a raw frontmatter block.
 - `hours.ts` — durations: `formatHours` ("5h 30m"), `parseHours` (whatever a
   human types — "5:30", "2.5h", "90m", bare hours — quantized to whole
   minutes and stored as two-decimal hours so `String(n)` never emits float
   noise), and `formatTravelTotal`, the one spelling of the under-the-name
   label PLAN and COMPARE share.
-- `export.ts` — the emitters, `exportPlan(doc)`, and `roundTripDiff`.
+- `export.ts` — the emitters, `exportPlan(doc)`, `roundTripDiff`, and the
+  proposals snapshot: `PROPOSALS_PATH`, `renderProposalsFile` /
+  `parseProposalsFile` (the one serializer pair), and `exportStore(store,
+  committedProposalsFile)`, which is what EXPORT actually calls — the active
+  doc through `exportPlan` plus the snapshot file or its deletion.
 - `PlanBoard.astro` — the wrapper: the seed in, the island out, and all the
   planner CSS in an `is:global` block (island DOM sits outside Astro's style
   scoping, same as `FilterBar`). `client:load`, not `client:visible` — the
@@ -692,9 +726,14 @@ which looks exactly like "no map configured".
   hatching, travel-time pills at each arriving stay's start boundary (they
   claim lanes before the day-trip pills so they sit shallow, and clicking one
   turns it into an input — the pill IS the travel-time editor, which is why
-  it works identically on a compare row), day-trip branch pills, and every
+  it works identically on a compare row), day-trip branch pills (each with a
+  hover `×` — the track's own delete verb, which is what lets a compare row
+  drop a day trip without a pane), and every
   pointer interaction. Mounted once by the PLAN view and once per compare
   row, each instance editing its own variant through the `commit` prop.
+  The per-day `+` (`.pl-zone-add`) paints at z-index 4, above the lane-0
+  pills (3) — its parent `.pl-zone` must stay z-auto, or it becomes a
+  stacking context that traps the button back underneath them.
   `sel`/`onSelect` are optional and absent on compare rows: with no pane
   there, they have nothing to select for.
   Drag handlers attach their listeners to **`window`**, not the element — the
@@ -713,7 +752,8 @@ which looks exactly like "no map configured".
   DELETE, `+ NEW PROPOSAL`). **The rows stay compact — no detail pane**, by
   decision: this screen reads schedules against each other, so it offers only
   the edits the track itself carries. The MAIN badge marks the
-  schedule EXPORT writes and PLAN focuses on; it has no monopoly on editing.
+  schedule EXPORT writes as markdown (the others ride the proposals
+  snapshot) and PLAN focuses on; it has no monopoly on editing.
   The fixed window means every row is the same length, so the imported
   design's
   "+2 DAYS" delta has no equivalent here on purpose. The gutter width is
