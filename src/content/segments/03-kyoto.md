@@ -1,12 +1,8 @@
 ---
 city: Kyoto
-cityJa: "京都"
-start: 2026-10-19
+start: 2026-10-20
 end: 2026-10-22
-heroImage: ../../assets/segments/kyoto.jpg
-heroAlt: The vermilion torii tunnel at Fushimi Inari, lantern overhead
-tagline: Temples, tea, and a thousand gates
+travelHours: 3.7
 ---
 
-Four nights in the old capital, with Nara and Uji each a short train away.
-Nothing booked yet.
+Nothing written down for Kyoto yet.

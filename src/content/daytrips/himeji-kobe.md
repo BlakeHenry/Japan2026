@@ -1,6 +1,7 @@
 ---
 name: Himeji + Kobe
 parent: Osaka
+date: 2026-10-25
 cityJa: "姫路・神戸"
 note: one day, castle then harbour
 cities:
