@@ -14,8 +14,10 @@
  * PlanStore (src/lib/plan/variants.ts). **Every one of them is editable in
  * place**: the PLAN view is a zoomed-in focus on the active schedule, and the
  * COMPARE view (ComparePane) mounts a live track per row, each editing its
- * own variant. Being ACTIVE decides what EXPORT writes, what the stale banner
- * speaks about, and what PLAN focuses on — never what may be edited.
+ * own variant. Being ACTIVE decides what EXPORT writes as markdown, what the
+ * stale banner speaks about, and what PLAN focuses on — never what may be
+ * edited; the other schedules ride the same bundle as the one proposals
+ * snapshot (src/content/proposals.md), which seeds back beside the main plan.
  *
  * **Selection belongs to the PLAN view**, because the detail pane is the only
  * thing that answers one and the compare rows deliberately have no pane. So
@@ -28,8 +30,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { citySlug } from '../../lib/itinerary';
 import type { TripDoc } from '../../lib/plan/doc';
 import { STORAGE_KEY, deleteTrip, toggleKind, travelTotal } from '../../lib/plan/doc';
-import { BUNDLE_NAME, exportPlan } from '../../lib/plan/export';
+import { BUNDLE_NAME, exportStore } from '../../lib/plan/export';
 import { formatTravelTotal } from '../../lib/plan/hours';
+import type { SeededProposals } from '../../lib/plan/seed';
 import {
   LEGACY_STORE_KEY,
   STORE_KEY,
@@ -59,6 +62,8 @@ const MIN_TRACK = 1000;
 
 interface Props {
   seed: TripDoc;
+  /** The committed proposals snapshot — what a fresh browser compares with. */
+  proposals: SeededProposals;
 }
 
 /**
@@ -77,10 +82,12 @@ const resolves = (doc: TripDoc, sel: Sel): boolean =>
     ? doc.stops.some((s) => s.id === sel.id)
     : !!doc.stops.find((s) => s.id === sel.sid)?.trips[sel.ti];
 
-export default function PlanTimeline({ seed }: Props) {
-  // The store holds every proposed schedule; `doc` is the active one — the
-  // plan EXPORT writes, the stale banner speaks about, and PLAN focuses on.
-  const [store, setStore] = useState<PlanStore>(() => seedStore(seed));
+export default function PlanTimeline({ seed, proposals }: Props) {
+  // The store holds every proposed schedule — the committed main plan plus
+  // whatever the committed snapshot carries; `doc` is the active one — the
+  // plan EXPORT writes as markdown, the stale banner speaks about, and PLAN
+  // focuses on.
+  const [store, setStore] = useState<PlanStore>(() => seedStore(seed, proposals.variants));
   const [mode, setMode] = useState<'plan' | 'compare'>('plan');
   const [sel, setSel] = useState<Sel>(() => openingSel(seed));
   const [hydrated, setHydrated] = useState(false);
@@ -188,7 +195,7 @@ export default function PlanTimeline({ seed }: Props) {
   // --- Header commands -----------------------------------------------------
 
   const doExport = () => {
-    const result = exportPlan(doc);
+    const result = exportStore(store, proposals.filePresent);
     const blob = new Blob([result.bundle], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -286,7 +293,7 @@ export default function PlanTimeline({ seed }: Props) {
             type="button"
             className="pl-btn pl-btn-primary"
             onClick={doExport}
-            title="Download the regenerated content files for the main plan"
+            title="Download the regenerated content files — the main plan as markdown, plus the proposals snapshot"
           >
             EXPORT
           </button>

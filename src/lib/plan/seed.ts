@@ -19,8 +19,16 @@ import { dateKey } from '../itinerary';
 import { TRIP } from '../trip';
 import type { PlanDayTrip, PlanStop, SourceFile, TripDoc } from './doc';
 import { fromDayNumber, hashDoc, toDayNumber } from './doc';
-import { roundTripDiff } from './export';
+import {
+  firstDiff,
+  parseProposalsFile,
+  PROPOSALS_PATH,
+  renderProposalsFile,
+  roundTripDiff,
+} from './export';
 import { splitMarkdown } from './frontmatter';
+import type { PlanVariant } from './variants';
+import { isValidStoredDoc } from './variants';
 
 /**
  * Fixed rather than random (the mockup randomizes): the colours must be the
@@ -146,4 +154,51 @@ export function seedDoc(itinerary: Itinerary): TripDoc {
   }
 
   return doc;
+}
+
+export interface SeededProposals {
+  variants: PlanVariant[];
+  /**
+   * Whether the snapshot exists in the committed content — what tells EXPORT
+   * to emit a DELETED line when the browser's proposal count hits zero.
+   */
+  filePresent: boolean;
+}
+
+/**
+ * The committed proposals snapshot, if any, validated as hard as the markdown
+ * round trip above: the file is machine-written committed state, so anything
+ * wrong with it fails the build rather than being quietly dropped — a dropped
+ * variant would vanish from the very next export, which is silent destruction
+ * of committed data.
+ */
+export function seedProposals(seed: TripDoc): SeededProposals {
+  const raw = RAW_FILES[`/${PROPOSALS_PATH}`];
+  if (raw === undefined) return { variants: [], filePresent: false };
+
+  const payload = parseProposalsFile(raw);
+
+  for (const v of payload.proposals) {
+    if (!isValidStoredDoc(v.doc, seed)) {
+      throw new Error(
+        `[plan] proposal "${v.name}" in ${PROPOSALS_PATH} no longer fits the ` +
+          `trip — its window doesn't match trip.ts, or its document is ` +
+          `malformed. Delete the file (dropping every committed proposal) or ` +
+          `re-export from a browser whose plan is current.`
+      );
+    }
+  }
+
+  // The snapshot's round-trip assertion: the committed file must re-emit
+  // byte-identical, or EXPORT would rewrite something nobody edited.
+  const reEmit = renderProposalsFile(payload.proposals);
+  if (reEmit !== raw) {
+    throw new Error(
+      `[plan] proposals snapshot is not byte-stable — EXPORT would rewrite ` +
+        `${PROPOSALS_PATH} nobody edited (was it hand-edited?):\n` +
+        firstDiff(raw, reEmit)
+    );
+  }
+
+  return { variants: payload.proposals, filePresent: true };
 }

@@ -2,15 +2,16 @@
 import PlanBoard from '../components/plan/PlanBoard.astro';
 import Base from '../layouts/Base.astro';
 import { loadTrip } from '../lib/loadTrip';
-import { seedDoc } from '../lib/plan/seed';
+import { seedDoc, seedProposals } from '../lib/plan/seed';
 import { TRIP_TITLE } from '../lib/trip';
 
 const { itinerary } = await loadTrip();
 
 // The committed plan, serialized for the island. Everything after the first
 // paint comes from localStorage; this is what a fresh browser sees, and what
-// RESET goes back to.
+// RESET goes back to. The committed proposals snapshot rides along beside it.
 const seed = seedDoc(itinerary);
+const proposals = seedProposals(seed);
 ---
 
 {/* The plan, and the whole of it — a horizontal day timeline you can edit,
@@ -34,7 +35,7 @@ const seed = seedDoc(itinerary);
   </Fragment>
 
   <a class="pl-home" href="/">← {TRIP_TITLE}</a>
-  <PlanBoard seed={seed} />
+  <PlanBoard seed={seed} proposals={proposals} />
 </Base>
 
 <style is:global>

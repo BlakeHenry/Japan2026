@@ -31,6 +31,7 @@ import {
   addTrip,
   dateAt,
   deleteStop,
+  deleteTrip,
   insertAt,
   moveTrip,
   renameStop,
@@ -177,7 +178,7 @@ export default function PlanTrack({ doc, trackW, showDays, sel, onSelect, commit
           const result = moveTrip(docRef.current, sid, ti, Math.floor(last / ppdRef.current));
           if (result) {
             commit(result.doc);
-            onSelect({ t: 't', sid: result.stopId, ti: result.index });
+            onSelect?.({ t: 't', sid: result.stopId, ti: result.index });
           }
         }
         setTripDrag(null);
@@ -229,6 +230,15 @@ export default function PlanTrack({ doc, trackW, showDays, sel, onSelect, commit
     onSelect?.({ t: 't', sid: stopId, ti: result.index });
     setEditing({ type: 'trip', sid: stopId, ti: result.index });
     setHoverDay(null);
+  };
+
+  const doDeleteTrip = (sid: string, ti: number) => {
+    commit((d) => deleteTrip(d, sid, ti));
+    if (sel?.t === 't' && sel.sid === sid) {
+      if (sel.ti === ti) onSelect?.({ t: 's', id: sid });
+      // Trips address by position, so a later selection slides down one.
+      else if (sel.ti > ti) onSelect?.({ t: 't', sid, ti: sel.ti - 1 });
+    }
   };
 
   const commitName = (value: string) => {
@@ -625,6 +635,18 @@ export default function PlanTrack({ doc, trackW, showDays, sel, onSelect, commit
                     {trip.name}
                   </span>
                 )}
+                <button
+                  type="button"
+                  className="pl-branch-del"
+                  title="Delete this day trip"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    doDeleteTrip(stop.id, ti);
+                  }}
+                >
+                  ×
+                </button>
               </span>
             </div>
           );

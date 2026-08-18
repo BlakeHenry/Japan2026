@@ -9,13 +9,14 @@
  * **The rows stay compact.** This screen is for reading schedules against
  * each other — where the days go, and what the travelling costs — so it
  * draws no detail pane: every edit it offers is one you make on the track
- * itself. The pane, and the whole-stop verbs that live in it (mark a stretch
- * as travel days, delete a day trip), belong to the PLAN view.
+ * itself (a day trip's own × included). The pane, and the whole-stop verbs
+ * that live in it (mark a stretch as travel days), belong to the PLAN view.
  *
  * What "MAKE MAIN PLAN" still means: the main (active) schedule is the one
- * EXPORT writes back to content, the one the stale banner compares against
- * the committed seed, and the one the PLAN view zooms in on. It wears the
- * MAIN badge and the accent edge; it has no monopoly on editing.
+ * EXPORT writes back to content as markdown — the others ride the same
+ * bundle as the proposals snapshot — the one the stale banner compares
+ * against the committed seed, and the one the PLAN view zooms in on. It
+ * wears the MAIN badge and the accent edge; it has no monopoly on editing.
  *
  * Same width contract as the timeline: the day lane takes what the viewport
  * can spare down to MIN_LANE, then the whole table scrolls sideways. The name
@@ -144,7 +145,7 @@ export default function ComparePane(props: Props) {
                   {isActive && (
                     <span
                       className="pl-cmp-badge"
-                      title="The main plan — EXPORT writes it, PLAN focuses on it"
+                      title="The main plan — EXPORT writes it as content (proposals ride the snapshot), PLAN focuses on it"
                     >
                       MAIN
                     </span>

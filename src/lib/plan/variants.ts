@@ -6,9 +6,10 @@
  * of proposals, each a complete document over the same fixed window. Exactly
  * one is active — it is what PLAN mode edits, what EXPORT regenerates
  * `src/content/` from, and what the stale check compares against the
- * committed seed. The others are working state and nothing more: they live in
- * localStorage, export nothing, and a fresh browser starts with a single
- * variant seeded from the committed content.
+ * committed seed. The others ride the export as one machine-written snapshot
+ * (`src/content/proposals.md`), so a fresh browser starts with the main
+ * variant seeded from the committed content plus whatever proposals the
+ * snapshot carries.
  *
  * Everything here is pure, like doc.ts — the island stays a thin shell.
  */
@@ -23,7 +24,10 @@ export interface PlanVariant {
 
 export interface PlanStore {
   version: 1;
-  /** The variant PLAN mode edits and EXPORT writes. Always one of `variants`. */
+  /**
+   * The variant PLAN mode edits and EXPORT writes as markdown; the rest land
+   * in the proposals snapshot. Always one of `variants`.
+   */
   activeId: string;
   variants: PlanVariant[];
 }
@@ -54,11 +58,20 @@ const freshId = (): string => `variant-${Date.now().toString(36)}-${idSeq++}`;
 export const activeVariant = (store: PlanStore): PlanVariant =>
   store.variants.find((v) => v.id === store.activeId) ?? store.variants[0];
 
-export const seedStore = (seed: TripDoc): PlanStore => ({
-  version: 1,
-  activeId: MAIN_ID,
-  variants: [{ id: MAIN_ID, name: MAIN_NAME, doc: seed }],
-});
+export const seedStore = (seed: TripDoc, proposals: PlanVariant[] = []): PlanStore => {
+  // After MAKE MAIN PLAN, the demoted ex-main lands in the snapshot still
+  // wearing the id `main` — the file's ids are never rewritten, which is what
+  // keeps successive exports byte-stable — so the content-built main steps
+  // aside rather than colliding with it.
+  const taken = new Set(proposals.map((p) => p.id));
+  let mainId = MAIN_ID;
+  for (let n = 2; taken.has(mainId); n++) mainId = `${MAIN_ID}-${n}`;
+  return {
+    version: 1,
+    activeId: mainId,
+    variants: [{ id: mainId, name: MAIN_NAME, doc: seed }, ...proposals],
+  };
+};
 
 /**
  * Replace one variant's document; the doc mutations stay doc-shaped. Every
@@ -146,8 +159,10 @@ export function makeActive(store: PlanStore, id: string): PlanStore {
  * older trip.ts — or one that predates the window being immutable — must not
  * carry its own dates back in. One bad variant condemns the whole store: they
  * all branched under the same window, so they are all equally stale.
+ * Exported because the committed proposals snapshot is held to the same bar
+ * at build time (seedProposals).
  */
-const isValidDoc = (doc: TripDoc | undefined, seed: TripDoc): boolean =>
+export const isValidStoredDoc = (doc: TripDoc | undefined, seed: TripDoc): boolean =>
   doc?.version === 1 &&
   Array.isArray(doc.stops) &&
   doc.stops.length > 0 &&
@@ -179,7 +194,9 @@ export function decodeStore(
         saved.variants.length > 0 &&
         saved.variants.every(
           (v) =>
-            typeof v?.id === 'string' && typeof v?.name === 'string' && isValidDoc(v.doc, seed)
+            typeof v?.id === 'string' &&
+            typeof v?.name === 'string' &&
+            isValidStoredDoc(v.doc, seed)
         )
       ) {
         const activeId = saved.variants.some((v) => v.id === saved.activeId)
@@ -194,7 +211,7 @@ export function decodeStore(
   try {
     if (rawLegacyDoc) {
       const doc = JSON.parse(rawLegacyDoc) as TripDoc;
-      if (isValidDoc(doc, seed)) {
+      if (isValidStoredDoc(doc, seed)) {
         return { version: 1, activeId: MAIN_ID, variants: [{ id: MAIN_ID, name: MAIN_NAME, doc }] };
       }
     }
